@@ -1,0 +1,20 @@
+# Build output
+/build/
+/build-*/
+/out/
+/cmake-build-*/
+*.exe
+*.obj
+*.o
+*.pdb
+*.ilk
+
+# Generated renders (keep the directory in Git)
+/renders/*
+!/renders/.gitkeep
+
+# Local IDE and operating system files
+/.vs/
+/.idea/
+.DS_Store
+Thumbs.db
