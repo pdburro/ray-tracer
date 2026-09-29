@@ -4,12 +4,14 @@ A C++ class project following [Ray Tracing in One Weekend](https://raytracing.gi
 
 ## Current status
 
-Project scaffold created. The executable currently prints a startup message; rendering is the first implementation checkpoint. Build and render checkpoints stay unchecked until verified locally.
+Section 3 implemented: vec3 vector math, point3/color aliases, and integer PPM color output. The renderer preserves the rainbow experiment and reports progress. Next: Section 4, rays and a simple camera.
 
 ## Project layout
 
 ```text
-src/main.cpp     Program entry point
+src/main.cpp     Rainbow renderer and progress output
+src/vec3.h       Vector math and point3 alias
+src/color.h      Color alias and PPM pixel output
 CMakeLists.txt   C++ build configuration
 renders/        Generated images (ignored by Git)
 ```
@@ -35,7 +37,7 @@ With a Visual Studio generator, run:
 
 With a single-configuration generator, the executable is usually `build/ray_tracer.exe` on Windows or `build/ray_tracer` on macOS/Linux. Configure those builds with `cmake -S . -B build -DCMAKE_BUILD_TYPE=Release`.
 
-Once you implement PPM output on standard output, save a render in PowerShell using:
+Save a render in PowerShell using:
 
 ```powershell
 .\build\Release\ray_tracer.exe | Out-File -Encoding ascii renders\image.ppm
@@ -48,9 +50,9 @@ Keep progress messages on `std::clog` so they do not enter the image file. Use a
 Check off each milestone after building, running, and inspecting its result. These follow the guide's progression:
 
 - [x] 00 — Create the repository scaffold and build configuration.
-- [ ] 01 — Build and run the starter locally.
-- [ ] 02 — Output an Image: save and inspect the PPM gradient; add progress reporting.
-- [ ] 03 — The vec3 Class: add vector operations and color output.
+- [x] 01 — Build and run the starter locally.
+- [x] 02 — Output an Image: save and inspect the PPM gradient; add progress reporting.
+- [x] 03 — The vec3 Class: add vector operations and color output.
 - [ ] 04 — Rays, a Simple Camera, and Background: render a sky gradient.
 - [ ] 05 — Adding a Sphere: render a sphere silhouette.
 - [ ] 06 — Surface Normals and Multiple Objects: visualize normals and add a ground sphere.
@@ -85,8 +87,11 @@ Generated images and build files are ignored. To preserve a milestone image, del
 | --- | --- | --- |
 | 00 | 2026-09-10 | Starter files added; compilation has not yet been verified. |
 
+| 01-03 | 2026-09-29 | Release build succeeded; generated a 256x256 rainbow PPM and checked pixel count and integer channel ranges. Added Section 3 vector/color helpers and progress reporting. |
+
 For future entries, record image settings, what changed, and any remaining issues.
 
 ## Reference and attribution
 
-The linked book is the learning reference for this project. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.
+The linked book is the learning reference for this project. The interfaces and math in src/vec3.h and src/color.h follow Section 3, implemented with Codex assistance. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.
+
