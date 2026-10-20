@@ -4,12 +4,13 @@ A C++ class project following [Ray Tracing in One Weekend](https://raytracing.gi
 
 ## Current status
 
-Section 3 implemented: vec3 vector math, point3/color aliases, and integer PPM color output. The renderer preserves the rainbow experiment and reports progress. Next: Section 4, rays and a simple camera.
+Section 4 implemented: rays from a simple camera produce a 400x225 sky gradient. Next: Section 5, adding a sphere.
 
 ## Project layout
 
 ```text
-src/main.cpp     Rainbow renderer and progress output
+src/main.cpp     Simple camera, sky shading, and render loop
+src/ray.h        Ray origin, direction, and at(t)
 src/vec3.h       Vector math and point3 alias
 src/color.h      Color alias and PPM pixel output
 CMakeLists.txt   C++ build configuration
@@ -53,7 +54,7 @@ Check off each milestone after building, running, and inspecting its result. The
 - [x] 01 — Build and run the starter locally.
 - [x] 02 — Output an Image: save and inspect the PPM gradient; add progress reporting.
 - [x] 03 — The vec3 Class: add vector operations and color output.
-- [ ] 04 — Rays, a Simple Camera, and Background: render a sky gradient.
+- [x] 04 — Rays, a Simple Camera, and Background: render a sky gradient.
 - [ ] 05 — Adding a Sphere: render a sphere silhouette.
 - [ ] 06 — Surface Normals and Multiple Objects: visualize normals and add a ground sphere.
 - [ ] 07 — Moving Camera Code Into Its Own Class: preserve the rendered scene.
@@ -86,12 +87,12 @@ Generated images and build files are ignored. To preserve a milestone image, del
 | Checkpoint | Date | Verification / notes |
 | --- | --- | --- |
 | 00 | 2026-09-10 | Starter files added; compilation has not yet been verified. |
-
 | 01-03 | 2026-09-29 | Release build succeeded; generated a 256x256 rainbow PPM and checked pixel count and integer channel ranges. Added Section 3 vector/color helpers and progress reporting. |
+
+| 04 | 2026-10-20 | Release build passed; checked 400x225 PPM pixel count, channel ranges, and blue-to-white direction. |
 
 For future entries, record image settings, what changed, and any remaining issues.
 
 ## Reference and attribution
 
-The linked book is the learning reference for this project. The interfaces and math in src/vec3.h and src/color.h follow Section 3, implemented with Codex assistance. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.
-
+The linked book is the learning reference for this project. The interfaces and math in src/vec3.h and src/color.h follow Section 3, implemented with Codex assistance. The ray class and simple camera/background follow Section 4 with Codex assistance. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.
