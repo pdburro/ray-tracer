@@ -4,8 +4,27 @@
 #include <algorithm>
 #include <iostream>
 
+// Section 5: substitute the ray into the sphere equation to get
+// a*t*t + b*t + c = 0. Real solutions mean the line touches the sphere.
+bool hit_sphere(const point3 &center, double radius, const ray &r)
+{
+    const vec3 to_center = center - r.origin();
+    const double a = r.direction().length_squared();
+    const double b = -2.0 * dot(r.direction(), to_center);
+    const double c = to_center.length_squared() - radius * radius;
+    const double discriminant = b * b - 4.0 * a * c;
+
+    // Like the book at this stage, this does not reject hits behind the camera.
+    return discriminant >= 0.0;
+}
+
 color ray_color(const ray &r)
 {
+    if (hit_sphere(point3(0, 0, -1), 0.5, r))
+    {
+        return color(1, 0, 0);
+    }
+
     const vec3 direction = unit_vector(r.direction());
     const double blend = 0.5 * (direction.y() + 1.0);
     return (1.0 - blend) * color(1.0, 1.0, 1.0) + blend * color(0.5, 0.7, 1.0);
