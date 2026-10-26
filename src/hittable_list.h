@@ -8,8 +8,14 @@
 class hittable_list : public hittable
 {
 public:
-    void clear() { objects.clear(); }
-    void add(std::shared_ptr<hittable> object) { objects.push_back(object); }
+    void clear() { objects.clear(); box_ = aabb(); }
+    void add(std::shared_ptr<hittable> object)
+    {
+        objects.push_back(object);
+        box_ = aabb(box_, object->bounding_box());
+    }
+    aabb bounding_box() const override { return box_; }
+    const std::vector<std::shared_ptr<hittable>> &items() const { return objects; }
 
     bool hit(const ray &r, interval ray_t, hit_record &record) const override
     {
@@ -30,6 +36,7 @@ public:
 
 private:
     std::vector<std::shared_ptr<hittable>> objects;
+    aabb box_;
 };
 
 #endif

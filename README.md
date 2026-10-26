@@ -6,9 +6,9 @@ A C++ ray tracer for COMS 3360, following the *Ray Tracing* book series.
 
 **Completed:** [Ray Tracing in One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html), through Section 14.
 
-**Current:** [Ray Tracing: The Next Week](https://raytracing.github.io/books/RayTracingTheNextWeek.html), Section 2: Motion Blur — complete.
+**Current:** [Ray Tracing: The Next Week](https://raytracing.github.io/books/RayTracingTheNextWeek.html), Section 3: Bounding Volume Hierarchies — complete.
 
-**Next:** Book 2, Section 3: Bounding Volume Hierarchies.
+**Next:** Book 2, Section 4: Texture Mapping.
 
 ## Course checkpoint
 
@@ -19,7 +19,7 @@ A C++ ray tracer for COMS 3360, following the *Ray Tracing* book series.
 - [ ] Load textures from image files
 - [ ] Textured spheres and triangles
 - [ ] Load and render triangle meshes
-- [ ] Spatial subdivision acceleration structure
+- [x] Spatial subdivision acceleration structure (BVH)
 - [x] Specular, diffuse, and dielectric materials
 - [ ] Emissive materials (lights)
 
@@ -36,6 +36,8 @@ cmake --build build --config Release
 ```
 
 Open the result with a viewer that supports PPM. Render settings are in `src/main.cpp`: currently 400x225 pixels, 25 samples per pixel, and a maximum path depth of 50. Build files and generated renders are ignored by Git.
+
+The scene now uses a BVH to skip groups of objects a ray cannot reach. The Section 3 render matches Section 2 byte-for-byte and took about 6.2 seconds, compared with 26.8 seconds before acceleration (individual runs on this machine). All six test suites pass.
 
 To run the tests:
 

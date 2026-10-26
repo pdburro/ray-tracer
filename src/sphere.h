@@ -17,6 +17,8 @@ public:
             throw std::invalid_argument("Sphere radius must be positive");
         if (!mat_)
             throw std::invalid_argument("Sphere material must not be null");
+        const vec3 offset(radius, radius, radius);
+        box_ = aabb(aabb(start - offset, start + offset), aabb(end - offset, end + offset));
     }
 
     bool hit(const ray &r, interval ray_t, hit_record &record) const override
@@ -45,7 +47,10 @@ public:
         return true;
     }
 
+    aabb bounding_box() const override { return box_; }
+
 private:
+    aabb box_;
     ray center_;
     double radius_;
     std::shared_ptr<material> mat_;

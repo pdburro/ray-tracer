@@ -5,6 +5,7 @@
 class endless_scene : public hittable
 {
 public:
+    aabb bounding_box() const override { return aabb(); }
     mutable int hits = 0;
     mutable bool valid_interval = true;
     bool hit(const ray &r, interval range, hit_record &record) const override

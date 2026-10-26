@@ -5,6 +5,7 @@
 class ray_capture : public hittable
 {
 public:
+    aabb bounding_box() const override { return aabb(); }
     mutable std::vector<ray> rays;
     bool hit(const ray &r, interval, hit_record &) const override
     {
