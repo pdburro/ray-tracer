@@ -4,13 +4,13 @@ A C++ class project following [Ray Tracing in One Weekend](https://raytracing.gi
 
 ## Current status
 
-Section 12 implemented: the camera now supports configurable position (`lookfrom`), target (`lookat`), up direction (`vup`), and vertical field of view in degrees (`vfov`). The hollow-glass/diffuse/metal scene is viewed from (-2, 2, 1), toward (0, 0, -1), with a 20-degree vertical FOV. Settings remain 400x225, 100 samples per pixel, and depth 50. Next: Section 13, defocus blur (optional for the course checklist).
+Section 13 implemented: the camera supports thin-lens defocus blur using a sampled lens disk and configurable focus plane. Current settings: `defocus_angle = 10` degrees, `focus_dist = 3.4`, camera (-2, 2, 1) toward (0, 0, -1), vertical FOV 20 degrees. The hollow-glass/diffuse/metal scene renders at 400x225, 100 samples per pixel, depth 50. Set `defocus_angle = 0` to disable blur. Next: Section 14, the final random-sphere scene; course extensions still remain.
 
 ## Project layout
 
 ```text
 src/main.cpp     Scene construction and camera settings
-src/camera.h     Configurable camera pose/FOV, jittered rays, and render loop
+src/camera.h     Camera pose/FOV, focus/lens sampling, jittered rays, and rendering
 src/random.h     Reproducible random values in [0, 1)
 src/interval.h   Valid ray parameter ranges
 src/hittable.h   Hit records and abstract intersection interface
@@ -20,9 +20,9 @@ src/hittable_list.h  Nearest-hit scene traversal
 tests/intersections.cpp  Intersection regression checks
 tests/diffuse.cpp  Sampling, recursion, and gamma regression checks
 tests/materials.cpp  Reflection, refraction, attenuation, fuzz, and boundary checks
-tests/camera.cpp  Camera pose, roll, FOV, pixel bounds, and invalid settings
+tests/camera.cpp  Camera pose/FOV, lens sampling, focus-plane rays, and invalid settings
 src/ray.h        Ray origin, direction, and at(t)
-src/vec3.h       Vector math, random directions, reflection, and refraction
+src/vec3.h       Vector math, disk/direction sampling, reflection, and refraction
 src/color.h      Color alias, gamma encoding, clamped PPM pixel output
 CMakeLists.txt   C++ build configuration
 renders/        Generated images (ignored by Git)
@@ -74,7 +74,7 @@ Check off each milestone after building, running, and inspecting its result. The
 - [x] 10 — Metal: add reflective and fuzzy materials.
 - [x] 11 — Dielectrics: add glass and refraction.
 - [x] 12 — Positionable Camera: render the scene from a new viewpoint.
-- [ ] 13 — Defocus Blur: demonstrate depth of field.
+- [x] 13 — Defocus Blur: demonstrate depth of field.
 - [ ] 14 — Where Next?: render the final scene and record settings.
 
 ## First course checkpoint requirements
@@ -190,6 +190,22 @@ A pixel represents an area of the image. Sampling only its center makes object b
 
 **Scene and verification:** Objects and materials remain unchanged from Section 11, including polished gold metal. The elevated diagonal viewpoint and narrow FOV give a close view, with the glass sphere partly outside the frame. Release build and all four CTest suites passed. Camera tests capture emitted rays and verify origins, jittered pixel bounds, 20/60/90-degree FOV, rotation to face +X, roll, non-unit up, and setting changes between renders. They also confirm that increasing target distance along the same axis preserves angular bounds, and invalid configurations fail before ray generation. Validated all 90,000 PPM pixels and RGB ranges and visually inspected `renders/section12.png`. Outputs: `renders/section12.ppm` and `renders/section12.png` (ignored by Git); 400x225, 100 samples per pixel, max depth 50.
 
+### Section 13 learning notes
+
+**Why blur appears:** A pinhole camera emits every primary ray from one point. A finite lens instead admits rays across an area. Our thin-lens approximation sends rays from a sampled circular lens toward the sampled pixel on a focus plane. They converge at that plane; nearer/farther surfaces intersect different parts of the ray bundle and become blurred when samples are averaged. This is depth-dependent defocus, not a blur filter applied to the finished image.
+
+**New controls (`camera.h`, configured in `main.cpp`):** `focus_dist` is the axial distance from the camera to the plane of perfect focus (current 3.4, class default 10). `defocus_angle` is the full angle subtended by the lens disk at the focus-plane center (current 10 degrees, default 0). The lens radius is `focus_dist * tan(defocus_angle * pi / 360)`. Larger angles increase blur; zero uses exactly the pinhole origin. We reject negative, nonfinite, or >=180-degree angles and nonpositive/nonfinite focus distances. This explicitly rejects negative angles rather than treating them as disabled.
+
+**Independent focus and direction:** `lookat` now only establishes the viewing direction with `lookfrom`. The viewport height and placement use focus_dist instead of the distance to lookat. The height remains `2 * focus_dist * tan(vfov / 2)`, and its center is `lookfrom - focus_dist * w`. Scaling viewport dimensions and placement together preserves angular framing. This is a simplified thin-lens model; focus distance is not the physical focal length of a real camera.
+
+**Disk sampling (`vec3.h`):** Generate x/y uniformly in [-1, 1), set z=0, and reject samples with squared radius >=1. The accepted samples are uniform over disk area. Sampling only a circle's rim or using a uniform radius would give the wrong distribution. Unlike the 3D unit-direction sampler, disk points are not normalized.
+
+**Ray construction (`camera.h`):** Multiply the camera's right/up unit vectors by the lens radius to get `defocus_disk_u/v`. For disk sample p, the origin is `lookfrom + p.x() * defocus_disk_u + p.y() * defocus_disk_v`. Select the pixel's jittered point on the focus plane as before, then set direction to `pixel_sample - origin`. At zero defocus angle, bypass disk sampling and use lookfrom. Lens sampling and pixel jitter solve different problems: depth of field and antialiasing. Random scattering, attenuation, depth limits, and gamma encoding remain unchanged.
+
+**Result and settings:** Objects/materials and camera pose match Section 12. With focus_dist 3.4 and defocus_angle 10, the blue sphere is relatively sharp, while the foreground glass and background gold sphere visibly blur. More samples reduce the remaining grain, but do not remove the intentional depth blur. Settings: 400x225, 100 samples per pixel, max depth 50, vertical FOV 20 degrees. Outputs: `renders/section13.ppm`, `renders/section13.png`, and `renders/section13-comparison.png` (Section 12 pinhole left, Section 13 defocus right); generated images remain ignored by Git.
+
+**Verification:** Release build and all four CTest suites passed. Camera tests now intersect captured rays with the focus plane and check that each lands inside its intended jittered pixel region. They verify origins within the correctly oriented lens disk, varied origins at positive aperture, multiple focus distances, and pinhole origins after disabling blur. A 20,000-sample disk check verifies bounds, near-zero mean, and mean squared radius near 1/2, as expected for uniform disk area. Added invalid focus/aperture checks. Validated all 90,000 output pixels and RGB ranges and visually inspected the side-by-side comparison.
+
 ## Version control workflow
 
 After finishing a checkpoint, update its checkbox and record what you verified in the log below. Review changes before staging them:
@@ -230,8 +246,10 @@ Generated images and build files are ignored. To preserve a milestone image, del
 
 | 12 | 2026-10-26 | Release build and all four CTest suites passed. Camera at (-2,2,1), target (0,0,-1), up (0,1,0), vfov 20; 400x225, 100 samples/pixel, depth 50. Validated ray geometry, output pixels, and PNG appearance. |
 
+| 13 | 2026-10-26 | Release build and all four CTest suites passed. Thin lens at focus_dist 3.4, defocus_angle 10 degrees; 400x225, 100 samples/pixel, depth 50. Tested lens distribution and focus-plane intersections; validated output and inspected comparison. |
+
 For future entries, record image settings, what changed, and any remaining issues.
 
 ## Reference and attribution
 
-The linked book is the learning reference for this project. The interfaces and math in src/vec3.h and src/color.h follow Section 3, implemented with Codex assistance. The ray class and simple camera/background follow Section 4 with Codex assistance. The sphere intersection follows Section 5 with Codex assistance. The interval, hittable interface, hit records, oriented normals, sphere root selection, and object list follow Section 6 with Codex assistance. The camera class organization follows Section 7 with Codex assistance. Pixel jitter, sample accumulation, and averaging follow Section 8 with Codex assistance; the random helper uses the C++ standard library generator. Random direction rejection sampling, Lambertian scattering, recursive attenuation, depth limits, intersection tolerance, and gamma-2 conversion follow Section 9 with Codex assistance. The material interface, per-object albedo, mirror reflection, and fuzzy metal model follow Section 10 with Codex assistance. Snell refraction, total internal reflection, Schlick reflectance, and the relative-index hollow glass scene follow Section 11 with Codex assistance. Viewport FOV geometry and camera frame construction follow Section 12 with Codex assistance. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.
+The linked book is the learning reference for this project. The interfaces and math in src/vec3.h and src/color.h follow Section 3, implemented with Codex assistance. The ray class and simple camera/background follow Section 4 with Codex assistance. The sphere intersection follows Section 5 with Codex assistance. The interval, hittable interface, hit records, oriented normals, sphere root selection, and object list follow Section 6 with Codex assistance. The camera class organization follows Section 7 with Codex assistance. Pixel jitter, sample accumulation, and averaging follow Section 8 with Codex assistance; the random helper uses the C++ standard library generator. Random direction rejection sampling, Lambertian scattering, recursive attenuation, depth limits, intersection tolerance, and gamma-2 conversion follow Section 9 with Codex assistance. The material interface, per-object albedo, mirror reflection, and fuzzy metal model follow Section 10 with Codex assistance. Snell refraction, total internal reflection, Schlick reflectance, and the relative-index hollow glass scene follow Section 11 with Codex assistance. Viewport FOV geometry and camera frame construction follow Section 12 with Codex assistance. Thin-lens geometry, disk sampling, focus distance, and defocus angle follow Section 13 with Codex assistance. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.

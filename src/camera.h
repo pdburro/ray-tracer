@@ -23,6 +23,8 @@ public:
     point3 lookfrom = point3(0, 0, 0);
     point3 lookat = point3(0, 0, -1);
     vec3 vup = vec3(0, 1, 0);
+    double defocus_angle = 0; // Full cone angle in degrees; zero is a pinhole.
+    double focus_dist = 10; // Distance along the view axis to the focus plane.
 
     void render(const hittable &world)
     {
@@ -50,6 +52,8 @@ private:
     point3 first_pixel;
     vec3 pixel_delta_u;
     vec3 pixel_delta_v;
+    vec3 defocus_disk_u;
+    vec3 defocus_disk_v;
 
     // Recalculate derived values so settings can change between renders.
     void initialize()
@@ -63,19 +67,23 @@ private:
             throw std::invalid_argument("Invalid image dimensions or aspect ratio");
         if (!std::isfinite(vfov) || vfov <= 0 || vfov >= 180)
             throw std::invalid_argument("vfov must be between 0 and 180 degrees");
+        if (!std::isfinite(focus_dist) || focus_dist <= 0)
+            throw std::invalid_argument("focus_dist must be finite and positive");
+        if (!std::isfinite(defocus_angle) || defocus_angle < 0 || defocus_angle >= 180)
+            throw std::invalid_argument("defocus_angle must be in [0, 180) degrees");
         const auto finite = [](const vec3 &p) {
             return std::isfinite(p.x()) && std::isfinite(p.y()) && std::isfinite(p.z());
         };
         if (!finite(lookfrom) || !finite(lookat) || !finite(vup))
             throw std::invalid_argument("Camera vectors must be finite");
         const vec3 view_back = lookfrom - lookat;
-        const double focal_length = view_back.length();
-        if (!std::isfinite(focal_length) || focal_length <= 1e-12)
+        const double target_distance = view_back.length();
+        if (!std::isfinite(target_distance) || target_distance <= 1e-12)
             throw std::invalid_argument("Camera position and target must be distinct");
         const double up_length = vup.length();
         if (!std::isfinite(up_length) || up_length <= 1e-12)
             throw std::invalid_argument("Camera up vector must be nonzero");
-        const vec3 w = view_back / focal_length;
+        const vec3 w = view_back / target_distance;
         const vec3 right = cross(vup / up_length, w);
         if (right.length() <= 1e-12)
             throw std::invalid_argument("Camera up vector must not be parallel to view direction");
@@ -86,14 +94,17 @@ private:
 
         camera_center = lookfrom;
         const double theta = vfov * std::acos(-1.0) / 180.0;
-        const double viewport_height = 2 * focal_length * std::tan(theta / 2);
+        const double viewport_height = 2 * focus_dist * std::tan(theta / 2);
         const double viewport_width = viewport_height * double(image_width) / image_height;
         const vec3 viewport_u = viewport_width * u;
         const vec3 viewport_v = -viewport_height * v;
         pixel_delta_u = viewport_u / image_width;
         pixel_delta_v = viewport_v / image_height;
-        const point3 upper_left = camera_center - focal_length * w - viewport_u / 2 - viewport_v / 2;
+        const point3 upper_left = camera_center - focus_dist * w - viewport_u / 2 - viewport_v / 2;
         first_pixel = upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
+        const double defocus_radius = focus_dist * std::tan(defocus_angle * std::acos(-1.0) / 360);
+        defocus_disk_u = defocus_radius * u;
+        defocus_disk_v = defocus_radius * v;
     }
 
     vec3 sample_square() const
@@ -109,7 +120,14 @@ private:
         const point3 pixel_sample = first_pixel
             + (i + offset.x()) * pixel_delta_u
             + (j + offset.y()) * pixel_delta_v;
-        return ray(camera_center, pixel_sample - camera_center);
+        const point3 origin = defocus_angle == 0 ? camera_center : defocus_disk_sample();
+        return ray(origin, pixel_sample - origin);
+    }
+
+    point3 defocus_disk_sample() const
+    {
+        const vec3 p = random_in_unit_disk();
+        return camera_center + p.x() * defocus_disk_u + p.y() * defocus_disk_v;
     }
 
     color ray_color(const ray &r, int depth, const hittable &world) const

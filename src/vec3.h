@@ -114,4 +114,15 @@ inline vec3 lambertian_direction(const vec3 &normal)
     return direction.near_zero() ? normal : direction;
 }
 
+inline vec3 random_in_unit_disk()
+{
+    while (true)
+    {
+        const double x = 2 * random_double() - 1;
+        const double y = 2 * random_double() - 1;
+        const vec3 p(x, y, 0);
+        if (p.length_squared() < 1) return p;
+    }
+}
+
 #endif
