@@ -3,10 +3,12 @@
 
 #include "color.h"
 #include "hittable.h"
+#include "random.h"
 
 #include <algorithm>
 #include <iostream>
 #include <limits>
+#include <stdexcept>
 
 // Section 7: camera setup, ray generation, and image output live together.
 class camera
@@ -14,6 +16,7 @@ class camera
 public:
     double aspect_ratio = 1.0;
     int image_width = 100;
+    int samples_per_pixel = 10;
 
     void render(const hittable &world)
     {
@@ -25,9 +28,10 @@ public:
             std::clog << "\rRows left: " << image_height - j << "   " << std::flush;
             for (int i = 0; i < image_width; ++i)
             {
-                const point3 pixel_center = first_pixel + i * pixel_delta_u + j * pixel_delta_v;
-                const ray camera_ray(camera_center, pixel_center - camera_center);
-                write_color(std::cout, ray_color(camera_ray, world));
+                color pixel_color(0, 0, 0);
+                for (int sample = 0; sample < samples_per_pixel; ++sample)
+                    pixel_color += ray_color(get_ray(i, j), world);
+                write_color(std::cout, pixel_samples_scale * pixel_color);
             }
         }
         std::clog << "\rRender complete.       \n";
@@ -35,6 +39,7 @@ public:
 
 private:
     int image_height = 0;
+    double pixel_samples_scale = 1;
     point3 camera_center;
     point3 first_pixel;
     vec3 pixel_delta_u;
@@ -43,6 +48,9 @@ private:
     // Recalculate derived values so settings can change between renders.
     void initialize()
     {
+        if (samples_per_pixel < 1)
+            throw std::invalid_argument("samples_per_pixel must be positive");
+        pixel_samples_scale = 1.0 / samples_per_pixel;
         image_height = std::max(1, int(image_width / aspect_ratio));
 
         camera_center = point3(0, 0, 0);
@@ -55,6 +63,22 @@ private:
         pixel_delta_v = viewport_v / image_height;
         const point3 upper_left = camera_center - vec3(0, 0, focal_length) - viewport_u / 2 - viewport_v / 2;
         first_pixel = upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
+    }
+
+    vec3 sample_square() const
+    {
+        const double x = random_double() - 0.5;
+        const double y = random_double() - 0.5;
+        return vec3(x, y, 0);
+    }
+
+    ray get_ray(int i, int j) const
+    {
+        const vec3 offset = sample_square();
+        const point3 pixel_sample = first_pixel
+            + (i + offset.x()) * pixel_delta_u
+            + (j + offset.y()) * pixel_delta_v;
+        return ray(camera_center, pixel_sample - camera_center);
     }
 
     color ray_color(const ray &r, const hittable &world) const

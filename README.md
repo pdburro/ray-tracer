@@ -4,13 +4,14 @@ A C++ class project following [Ray Tracing in One Weekend](https://raytracing.gi
 
 ## Current status
 
-Section 7 implemented: camera setup, ray generation, normal visualization, and image output now live in `src/camera.h`. `main.cpp` creates the scene and configures the camera. The render is unchanged from Section 6: a sphere centered at (0, 0, -1), radius 0.5, and a ground sphere centered at (0, -100.5, -1), radius 100, are colored by their surface normals against the 400x225 sky gradient. Hits use an open parameter interval, reject intersections behind the camera, and select the nearest object. Normals face against the incoming ray, with front/back face information retained. Next: Section 8, antialiasing.
+Section 8 implemented: the camera averages 100 randomly jittered rays per pixel to smooth sphere and ground edges. The scene remains 400x225 with surface-normal colors and a sky background. `samples_per_pixel` is configurable in `src/main.cpp`; camera position/orientation and field of view remain fixed until Section 12. Next: Section 9, diffuse scattering and gamma correction.
 
 ## Project layout
 
 ```text
 src/main.cpp     Scene construction and camera settings
-src/camera.h     Camera setup, ray generation, shading, and render loop
+src/camera.h     Camera setup, jittered rays, sample averaging, and render loop
+src/random.h     Reproducible random values in [0, 1)
 src/interval.h   Valid ray parameter ranges
 src/hittable.h   Hit records and abstract intersection interface
 src/sphere.h     Sphere roots and oriented surface normals
@@ -64,7 +65,7 @@ Check off each milestone after building, running, and inspecting its result. The
 - [x] 05 — Adding a Sphere: render a sphere silhouette.
 - [x] 06 — Surface Normals and Multiple Objects: visualize normals and add a ground sphere.
 - [x] 07 — Moving Camera Code Into Its Own Class: preserve the rendered scene.
-- [ ] 08 — Antialiasing: compare sampled edges with the earlier image.
+- [x] 08 — Antialiasing: compare sampled edges with the earlier image.
 - [ ] 09 — Diffuse Materials: add diffuse scattering and gamma correction.
 - [ ] 10 — Metal: add reflective and fuzzy materials.
 - [ ] 11 — Dielectrics: add glass and refraction.
@@ -74,10 +75,10 @@ Check off each milestone after building, running, and inspecting its result. The
 
 ## First course checkpoint requirements
 
-This course checkpoint spans multiple textbook sections and additional features. Section 6 completes only the sphere intersection foundation.
+This course checkpoint spans multiple textbook sections and additional features. Sections 6-8 complete the sphere intersection foundation, camera organization, and antialiasing.
 
 - [ ] Camera with configurable position, orientation, and field of view (Sections 7 and 12).
-- [ ] Anti-aliasing (Section 8).
+- [x] Anti-aliasing (Section 8).
 - [x] Ray/sphere intersections (Sections 5-6).
 - [ ] Ray/triangle intersections (extension).
 - [ ] Load image textures (extension; PPM is a possible initial format).
@@ -106,6 +107,17 @@ Section 7 output is `renders/section07.ppm`, verified byte-for-byte identical to
 - Private `initialize()` derives image height, viewport dimensions, pixel spacing, and the first pixel center from those settings before each render.
 - Private `ray_color()` retains the existing surface-normal colors and sky background.
 - This is a refactor: geometry and pixel colors stay the same. Camera position, orientation, and field of view arrive in Section 12; antialiasing is next in Section 8.
+
+### Section 8 learning notes
+
+A pixel represents an area of the image. Sampling only its center makes object boundaries jump between whole pixels. `get_ray(i, j)` now samples a random location within that area using offsets in [-0.5, 0.5) along each pixel axis. The camera sums the resulting colors and multiplies by `1.0 / samples_per_pixel` before writing the pixel. More samples reduce sampling noise and increase rendering work roughly in proportion to the sample count.
+
+- Set `cam.samples_per_pixel = 100` in `src/main.cpp` (9,000,000 primary rays at 400x225). The class default is 10; values below 1 are rejected.
+- One sample now means one random location, rather than the old center sample. Section 7's saved render is the center-sampled comparison.
+- `random_double()` uses a fixed initial seed, allowing repeatable runs with the same toolchain. The generator advances across renders in one process.
+- Averaging happens in floating point before converting to integer RGB. Gamma correction comes in Section 9.
+- Outputs: `renders/section08.ppm`, `renders/section08.png`, and `renders/section08-comparison.png` (Section 7 left, Section 8 right; same crop enlarged 6x). Generated images remain ignored by Git.
+- Verification: Release build and CTest passed; checked all 90,000 pixels and RGB ranges. At 810 boundary pixels, RGB root-mean-square error against a separate uniform 16x16-sample reference fell from 25.204 for center sampling to 3.662 for 100 random samples. Visually inspected the enlarged comparison.
 
 ## Version control workflow
 
@@ -137,8 +149,10 @@ Generated images and build files are ignored. To preserve a milestone image, del
 
 | 07 | 2026-10-26 | Release build and CTest passed. Moved camera/render code to camera.h; 400x225 PPM is byte-for-byte identical to Section 6. |
 
+| 08 | 2026-10-26 | Release build and CTest passed; rendered 400x225 at 100 samples/pixel. Validated PPM and inspected enlarged edges; boundary RGB RMSE against a 16x16 reference improved from 25.204 to 3.662. |
+
 For future entries, record image settings, what changed, and any remaining issues.
 
 ## Reference and attribution
 
-The linked book is the learning reference for this project. The interfaces and math in src/vec3.h and src/color.h follow Section 3, implemented with Codex assistance. The ray class and simple camera/background follow Section 4 with Codex assistance. The sphere intersection follows Section 5 with Codex assistance. The interval, hittable interface, hit records, oriented normals, sphere root selection, and object list follow Section 6 with Codex assistance. The camera class organization follows Section 7 with Codex assistance. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.
+The linked book is the learning reference for this project. The interfaces and math in src/vec3.h and src/color.h follow Section 3, implemented with Codex assistance. The ray class and simple camera/background follow Section 4 with Codex assistance. The sphere intersection follows Section 5 with Codex assistance. The interval, hittable interface, hit records, oriented normals, sphere root selection, and object list follow Section 6 with Codex assistance. The camera class organization follows Section 7 with Codex assistance. Pixel jitter, sample accumulation, and averaging follow Section 8 with Codex assistance; the random helper uses the C++ standard library generator. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.
