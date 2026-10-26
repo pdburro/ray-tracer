@@ -1,28 +1,17 @@
 #include "color.h"
 #include "ray.h"
+#include "hittable_list.h"
+#include "sphere.h"
 
 #include <algorithm>
 #include <iostream>
 
-// Section 5: substitute the ray into the sphere equation to get
-// a*t*t + b*t + c = 0. Real solutions mean the line touches the sphere.
-bool hit_sphere(const point3 &center, double radius, const ray &r)
+color ray_color(const ray &r, const hittable &world)
 {
-    const vec3 to_center = center - r.origin();
-    const double a = r.direction().length_squared();
-    const double b = -2.0 * dot(r.direction(), to_center);
-    const double c = to_center.length_squared() - radius * radius;
-    const double discriminant = b * b - 4.0 * a * c;
-
-    // Like the book at this stage, this does not reject hits behind the camera.
-    return discriminant >= 0.0;
-}
-
-color ray_color(const ray &r)
-{
-    if (hit_sphere(point3(0, 0, -1), 0.5, r))
+    hit_record record;
+    if (world.hit(r, interval(0, std::numeric_limits<double>::infinity()), record))
     {
-        return color(1, 0, 0);
+        return 0.5 * (record.normal + color(1, 1, 1));
     }
 
     const vec3 direction = unit_vector(r.direction());
@@ -32,6 +21,10 @@ color ray_color(const ray &r)
 
 int main()
 {
+    hittable_list world;
+    world.add(std::make_shared<sphere>(point3(0, 0, -1), 0.5));
+    world.add(std::make_shared<sphere>(point3(0, -100.5, -1), 100));
+
     const double aspect_ratio = 16.0 / 9.0;
     const int image_width = 400;
     const int image_height = std::max(1, int(image_width / aspect_ratio));
@@ -56,7 +49,7 @@ int main()
         {
             const point3 pixel_center = first_pixel + i * pixel_delta_u + j * pixel_delta_v;
             const ray camera_ray(camera_center, pixel_center - camera_center);
-            write_color(std::cout, ray_color(camera_ray));
+            write_color(std::cout, ray_color(camera_ray, world));
         }
     }
     std::clog << "\rRender complete.       \n";

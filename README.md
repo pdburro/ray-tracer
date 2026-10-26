@@ -4,12 +4,17 @@ A C++ class project following [Ray Tracing in One Weekend](https://raytracing.gi
 
 ## Current status
 
-Section 5 implemented: a red sphere centered at (0, 0, -1), radius 0.5, appears against the 400x225 sky gradient. Next: Section 6, surface normals and multiple objects. The introductory intersection check tests the discriminant only; it does not yet reject intersections behind the camera.
+Section 6 implemented: a sphere centered at (0, 0, -1), radius 0.5, and a ground sphere centered at (0, -100.5, -1), radius 100, are colored by their surface normals against the 400x225 sky gradient. Hits use an open parameter interval, reject intersections behind the camera, and select the nearest object. Normals face against the incoming ray, with front/back face information retained. Next: Section 7, moving camera code into its own class.
 
 ## Project layout
 
 ```text
-src/main.cpp     Sphere intersection, camera, and render loop
+src/main.cpp     Scene, normal visualization, camera, and render loop
+src/interval.h   Valid ray parameter ranges
+src/hittable.h   Hit records and abstract intersection interface
+src/sphere.h     Sphere roots and oriented surface normals
+src/hittable_list.h  Nearest-hit scene traversal
+tests/intersections.cpp  Intersection regression checks
 src/ray.h        Ray origin, direction, and at(t)
 src/vec3.h       Vector math and point3 alias
 src/color.h      Color alias and PPM pixel output
@@ -66,6 +71,31 @@ Check off each milestone after building, running, and inspecting its result. The
 - [ ] 13 â€” Defocus Blur: demonstrate depth of field.
 - [ ] 14 â€” Where Next?: render the final scene and record settings.
 
+## First course checkpoint requirements
+
+This course checkpoint spans multiple textbook sections and additional features. Section 6 completes only the sphere intersection foundation.
+
+- [ ] Camera with configurable position, orientation, and field of view (Sections 7 and 12).
+- [ ] Anti-aliasing (Section 8).
+- [x] Ray/sphere intersections (Sections 5–6).
+- [ ] Ray/triangle intersections (extension).
+- [ ] Load image textures (extension; PPM is a possible initial format).
+- [ ] Textured spheres and triangles with UV coordinates (extension).
+- [ ] Load and render triangle meshes (extension; OBJ is a possible initial format).
+- [ ] Spatial subdivision acceleration structure (extension; BVH is an option).
+- [ ] Specular, diffuse, and dielectric materials (Sections 9–11).
+- [ ] Emissive materials / lights (extension).
+
+Texture, BVH, and emissive concepts are covered in the series' second volume; triangles and mesh loading require additional implementation. Defocus blur is optional for this course checklist.
+
+## Verification
+
+```powershell
+ctest --test-dir build -C Release --output-on-failure
+```
+
+The intersection test covers non-unit directions, both sphere roots, interval endpoints, rays starting inside a sphere, oriented normals, tangents, zero directions, empty scenes, and nearest-hit selection independent of insertion order. Section 6 render outputs are `renders/section06.ppm` and a PNG preview at `renders/section06.png` (both ignored by Git).
+
 ## Version control workflow
 
 After finishing a checkpoint, update its checkbox and record what you verified in the log below. Review changes before staging them:
@@ -92,8 +122,10 @@ Generated images and build files are ignored. To preserve a milestone image, del
 
 | 05 | 2026-10-20 | Release build passed; verified all 90,000 pixels against the projected sphere silhouette, including 13,254 red pixels, and checked PPM channel ranges. |
 
+| 06 | 2026-10-26 | Release build and CTest passed. Rendered 400x225 at one ray per pixel; independently checked all 90,000 pixels (13,254 foreground sphere, 33,894 ground, 42,852 sky), channel ranges, and visually inspected the PNG preview. |
+
 For future entries, record image settings, what changed, and any remaining issues.
 
 ## Reference and attribution
 
-The linked book is the learning reference for this project. The interfaces and math in src/vec3.h and src/color.h follow Section 3, implemented with Codex assistance. The ray class and simple camera/background follow Section 4 with Codex assistance. The sphere intersection follows Section 5 with Codex assistance. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.
+The linked book is the learning reference for this project. The interfaces and math in src/vec3.h and src/color.h follow Section 3, implemented with Codex assistance. The ray class and simple camera/background follow Section 4 with Codex assistance. The sphere intersection follows Section 5 with Codex assistance. The interval, hittable interface, hit records, oriented normals, sphere root selection, and object list follow Section 6 with Codex assistance. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.
