@@ -3,7 +3,7 @@
 
 #include "vec3.h"
 
-// Book 1, Section 4: a ray is an origin plus a direction scaled by t.
+// Section 4
 class ray
 {
 public:
@@ -12,7 +12,6 @@ public:
 
     const point3 &origin() const { return start_; }
     const vec3 &direction() const { return heading_; }
-    // Section 4: P(t) = origin + t * direction; direction need not be unit length.
     point3 at(double t) const { return start_ + t * heading_; }
 
 private:

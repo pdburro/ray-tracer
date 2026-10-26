@@ -1,4 +1,3 @@
-// Project regression tests for Book 1, Sections 8, 12, and 13: pixel and lens rays.
 #include "camera.h"
 #include <sstream>
 #include <vector>
@@ -60,7 +59,6 @@ int main()
         if (cam.defocus_angle > 0)
             check(origin_spread > 0, "Nonzero aperture must sample varied lens origins");
     };
-    // Sections 8 and 12: pixel coverage, viewpoint, field of view, and roll.
     camera cam;
     cam.image_width = 8;
     cam.aspect_ratio = 2;
@@ -76,7 +74,6 @@ int main()
     cam.lookat = point3(13, 2, 1); // Target distance must not change angular pixel bounds.
     verify(cam, vec3(1, 0, 0), vec3(0, -1, 0), vec3(0, 0, 1));
 
-    // Section 13: lens origins still aim at the same focus-plane pixel bounds.
     cam.defocus_angle = 10;
     cam.focus_dist = 3.4;
     verify(cam, vec3(1, 0, 0), vec3(0, -1, 0), vec3(0, 0, 1));
@@ -85,7 +82,6 @@ int main()
     cam.defocus_angle = 0;
     verify(cam, vec3(1, 0, 0), vec3(0, -1, 0), vec3(0, 0, 1));
 
-    // Section 13: uniform disk area has expected squared radius 1/2.
     vec3 disk_mean;
     double radius_squared_sum = 0;
     bool inside_disk = true;
@@ -100,7 +96,6 @@ int main()
           && std::abs(radius_squared_sum / 20000 - 0.5) < 0.02,
           "Lens sampling must be uniform over disk area, with mean squared radius 1/2");
 
-    // Project validation checks, beyond the book's camera implementation.
     for (int scenario = 0; scenario < 14; ++scenario)
     {
         camera invalid;
