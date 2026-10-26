@@ -1,9 +1,17 @@
 cmake_minimum_required(VERSION 3.16)
 project(RayTracer LANGUAGES CXX)
 
+add_library(texture_image src/image.cpp)
+target_compile_features(texture_image PUBLIC cxx_std_17)
+target_include_directories(texture_image SYSTEM PRIVATE external)
+
 add_executable(ray_tracer src/main.cpp)
+target_link_libraries(ray_tracer PRIVATE texture_image)
 target_compile_features(ray_tracer PRIVATE cxx_std_17)
 set_target_properties(ray_tracer PROPERTIES CXX_EXTENSIONS OFF)
+add_custom_command(TARGET ray_tracer POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:ray_tracer>/assets")
 
 if(MSVC)
     target_compile_options(ray_tracer PRIVATE /W4)
@@ -37,4 +45,9 @@ if(BUILD_TESTING)
     target_include_directories(bvh_tests PRIVATE src)
     target_compile_features(bvh_tests PRIVATE cxx_std_17)
     add_test(NAME bvh COMMAND bvh_tests)
+    add_executable(texture_tests tests/textures.cpp)
+    target_include_directories(texture_tests PRIVATE src)
+    target_link_libraries(texture_tests PRIVATE texture_image)
+    target_compile_definitions(texture_tests PRIVATE TEST_ASSET_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets")
+    add_test(NAME textures COMMAND texture_tests)
 endif()

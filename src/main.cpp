@@ -2,11 +2,14 @@
 #include "hittable_list.h"
 #include "sphere.h"
 #include "bvh.h"
+#include <filesystem>
+#include <string>
 
-int main()
+void bouncing_spheres()
 {
     hittable_list world;
-    auto ground = std::make_shared<lambertian>(color(0.5, 0.5, 0.5));
+    auto checker = std::make_shared<checker_texture>(0.32, color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
+    auto ground = std::make_shared<lambertian>(checker);
     world.add(std::make_shared<sphere>(point3(0, -1000, 0), 1000, ground));
 
     int diffuse_count = 0, metal_count = 0, glass_count = 0;
@@ -72,4 +75,67 @@ int main()
     cam.focus_dist = 10;
     bvh_node accelerated_world(world);
     cam.render(accelerated_world);
+}
+
+void checkered_spheres()
+{
+    hittable_list world;
+    auto checker = std::make_shared<checker_texture>(0.32, color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
+    auto surface = std::make_shared<lambertian>(checker);
+    world.add(std::make_shared<sphere>(point3(0, -10, 0), 10, surface));
+    world.add(std::make_shared<sphere>(point3(0, 10, 0), 10, surface));
+
+    camera cam;
+    cam.aspect_ratio = 16.0 / 9.0;
+    cam.image_width = 400;
+    cam.samples_per_pixel = 100;
+    cam.max_depth = 50;
+    cam.vfov = 20;
+    cam.lookfrom = point3(13, 2, 3);
+    cam.lookat = point3(0, 0, 0);
+    cam.defocus_angle = 0;
+    bvh_node accelerated_world(world);
+    cam.render(accelerated_world);
+}
+
+void earth(const std::string &filename)
+{
+    auto tex = std::make_shared<image_texture>(filename);
+    auto surface = std::make_shared<lambertian>(tex);
+    sphere globe(point3(0, 0, 0), 2, surface);
+
+    camera cam;
+    cam.aspect_ratio = 16.0 / 9.0;
+    cam.image_width = 400;
+    cam.samples_per_pixel = 100;
+    cam.max_depth = 50;
+    cam.vfov = 20;
+    cam.lookfrom = point3(0, 0, 12);
+    cam.lookat = point3(0, 0, 0);
+    cam.defocus_angle = 0;
+    cam.render(globe);
+}
+
+int main(int argc, char **argv)
+{
+    try
+    {
+        const std::string scene = argc > 1 ? argv[1] : "earth";
+        if (argc > 3 || (argc == 3 && scene != "earth"))
+            throw std::invalid_argument("Usage: ray_tracer [earth [image-file] | checkers | spheres]");
+        if (scene == "spheres") bouncing_spheres();
+        else if (scene == "checkers") checkered_spheres();
+        else if (scene == "earth")
+        {
+            const std::filesystem::path filename = argc > 2 ? std::filesystem::path(argv[2])
+                : std::filesystem::absolute(argv[0]).parent_path() / "assets" / "earthmap.jpg";
+            earth(filename.string());
+        }
+        else throw std::invalid_argument("Unknown scene: " + scene);
+    }
+    catch (const std::exception &error)
+    {
+        std::cerr << error.what() << '\n';
+        return 1;
+    }
 }

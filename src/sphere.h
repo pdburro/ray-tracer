@@ -43,13 +43,24 @@ public:
         record.t = root;
         record.p = r.at(root);
         record.mat = mat_;
-        record.set_face_normal(r, (record.p - current_center) / radius_);
+        const vec3 outward_normal = (record.p - current_center) / radius_;
+        record.set_face_normal(r, outward_normal);
+        get_sphere_uv(outward_normal, record.u, record.v);
         return true;
     }
 
     aabb bounding_box() const override { return box_; }
 
 private:
+    static void get_sphere_uv(const point3 &p, double &u, double &v)
+    {
+        const double pi = std::acos(-1.0);
+        const double theta = std::acos(std::clamp(-p.y(), -1.0, 1.0));
+        const double phi = std::atan2(-p.z(), p.x()) + pi;
+        u = phi / (2 * pi);
+        v = theta / pi;
+    }
+
     aabb box_;
     ray center_;
     double radius_;

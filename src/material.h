@@ -3,6 +3,7 @@
 
 #include "color.h"
 #include "hittable.h"
+#include "texture.h"
 #include <algorithm>
 #include <stdexcept>
 
@@ -17,18 +18,22 @@ public:
 class lambertian : public material
 {
 public:
-    explicit lambertian(const color &albedo) : albedo_(albedo) {}
+    explicit lambertian(const color &albedo) : lambertian(std::make_shared<solid_color>(albedo)) {}
+    explicit lambertian(std::shared_ptr<texture> tex) : texture_(tex)
+    {
+        if (!tex) throw std::invalid_argument("Diffuse material needs a texture");
+    }
 
     bool scatter(const ray &incoming, const hit_record &record,
                  color &attenuation, ray &scattered) const override
     {
         scattered = ray(record.p, lambertian_direction(record.normal), incoming.time());
-        attenuation = albedo_;
+        attenuation = texture_->value(record.u, record.v, record.p);
         return true;
     }
 
 private:
-    color albedo_;
+    std::shared_ptr<texture> texture_;
 };
 
 class metal : public material
