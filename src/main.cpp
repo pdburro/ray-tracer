@@ -21,11 +21,13 @@ int main()
             if ((center - point3(4, 0.2, 0)).length() <= 0.9) continue;
 
             std::shared_ptr<material> surface;
+            point3 end = center;
             if (choice < 0.8)
             {
                 const color first = color::random();
                 const color second = color::random();
                 surface = std::make_shared<lambertian>(first * second);
+                end = center + vec3(0, random_double(0, 0.5), 0);
                 ++diffuse_count;
             }
             else if (choice < 0.95)
@@ -40,7 +42,7 @@ int main()
                 surface = std::make_shared<dielectric>(1.5);
                 ++glass_count;
             }
-            world.add(std::make_shared<sphere>(center, 0.2, surface));
+            world.add(std::make_shared<sphere>(center, end, 0.2, surface));
         }
     }
 

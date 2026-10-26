@@ -6,7 +6,9 @@ A C++ ray tracer for COMS 3360, following the *Ray Tracing* book series.
 
 **Completed:** [Ray Tracing in One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html), through Section 14.
 
-**Next:** [Ray Tracing: The Next Week](https://raytracing.github.io/books/RayTracingTheNextWeek.html), Motion Blur. Book 2 has not been started.
+**Current:** [Ray Tracing: The Next Week](https://raytracing.github.io/books/RayTracingTheNextWeek.html), Section 2: Motion Blur — complete.
+
+**Next:** Book 2, Section 3: Bounding Volume Hierarchies.
 
 ## Course checkpoint
 
@@ -21,7 +23,7 @@ A C++ ray tracer for COMS 3360, following the *Ray Tracing* book series.
 - [x] Specular, diffuse, and dielectric materials
 - [ ] Emissive materials (lights)
 
-**Additional feature:** Depth of field, with configurable focus distance and defocus angle.
+**Additional features:** Depth of field and motion blur. Small diffuse spheres move during a shutter interval of [0, 1); stationary spheres stay fixed.
 
 ## Build and render
 
@@ -43,4 +45,4 @@ ctest --test-dir build -C Release --output-on-failure
 
 ## Credits
 
-Based on *Ray Tracing in One Weekend* by Peter Shirley, Trevor David Black, and Steve Hollasch. Implemented with Codex assistance.
+Based on *Ray Tracing in One Weekend* and *Ray Tracing: The Next Week* by Peter Shirley, Trevor David Black, and Steve Hollasch. Implemented with Codex assistance.

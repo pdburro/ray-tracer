@@ -19,10 +19,10 @@ class lambertian : public material
 public:
     explicit lambertian(const color &albedo) : albedo_(albedo) {}
 
-    bool scatter(const ray &, const hit_record &record,
+    bool scatter(const ray &incoming, const hit_record &record,
                  color &attenuation, ray &scattered) const override
     {
-        scattered = ray(record.p, lambertian_direction(record.normal));
+        scattered = ray(record.p, lambertian_direction(record.normal), incoming.time());
         attenuation = albedo_;
         return true;
     }
@@ -41,7 +41,7 @@ public:
     {
         const vec3 reflected = reflect(unit_vector(incoming.direction()), record.normal);
         const vec3 direction = reflected + fuzz_ * random_unit_vector();
-        scattered = ray(record.p, direction);
+        scattered = ray(record.p, direction, incoming.time());
         attenuation = albedo_;
         return dot(direction, record.normal) > 0;
     }
@@ -75,7 +75,7 @@ public:
             direction = reflect(unit_direction, record.normal);
         else
             direction = refract(unit_direction, record.normal, ratio);
-        scattered = ray(record.p, direction);
+        scattered = ray(record.p, direction, incoming.time());
         return true;
     }
 

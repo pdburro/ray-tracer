@@ -121,7 +121,8 @@ private:
             + (i + offset.x()) * pixel_delta_u
             + (j + offset.y()) * pixel_delta_v;
         const point3 origin = defocus_angle == 0 ? camera_center : defocus_disk_sample();
-        return ray(origin, pixel_sample - origin);
+        const double time = random_double();
+        return ray(origin, pixel_sample - origin, time);
     }
 
     point3 defocus_disk_sample() const
