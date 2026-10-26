@@ -19,6 +19,10 @@ public:
     int image_width = 100;
     int samples_per_pixel = 10;
     int max_depth = 10;
+    double vfov = 90; // Vertical field of view in degrees.
+    point3 lookfrom = point3(0, 0, 0);
+    point3 lookat = point3(0, 0, -1);
+    vec3 vup = vec3(0, 1, 0);
 
     void render(const hittable &world)
     {
@@ -54,18 +58,41 @@ private:
             throw std::invalid_argument("samples_per_pixel must be positive");
         if (max_depth < 0)
             throw std::invalid_argument("max_depth must not be negative");
+        if (image_width < 1 || !std::isfinite(aspect_ratio) || aspect_ratio <= 0
+            || image_width / aspect_ratio >= std::numeric_limits<int>::max())
+            throw std::invalid_argument("Invalid image dimensions or aspect ratio");
+        if (!std::isfinite(vfov) || vfov <= 0 || vfov >= 180)
+            throw std::invalid_argument("vfov must be between 0 and 180 degrees");
+        const auto finite = [](const vec3 &p) {
+            return std::isfinite(p.x()) && std::isfinite(p.y()) && std::isfinite(p.z());
+        };
+        if (!finite(lookfrom) || !finite(lookat) || !finite(vup))
+            throw std::invalid_argument("Camera vectors must be finite");
+        const vec3 view_back = lookfrom - lookat;
+        const double focal_length = view_back.length();
+        if (!std::isfinite(focal_length) || focal_length <= 1e-12)
+            throw std::invalid_argument("Camera position and target must be distinct");
+        const double up_length = vup.length();
+        if (!std::isfinite(up_length) || up_length <= 1e-12)
+            throw std::invalid_argument("Camera up vector must be nonzero");
+        const vec3 w = view_back / focal_length;
+        const vec3 right = cross(vup / up_length, w);
+        if (right.length() <= 1e-12)
+            throw std::invalid_argument("Camera up vector must not be parallel to view direction");
+        const vec3 u = unit_vector(right);
+        const vec3 v = cross(w, u);
         pixel_samples_scale = 1.0 / samples_per_pixel;
         image_height = std::max(1, int(image_width / aspect_ratio));
 
-        camera_center = point3(0, 0, 0);
-        const double focal_length = 1.0;
-        const double viewport_height = 2.0;
+        camera_center = lookfrom;
+        const double theta = vfov * std::acos(-1.0) / 180.0;
+        const double viewport_height = 2 * focal_length * std::tan(theta / 2);
         const double viewport_width = viewport_height * double(image_width) / image_height;
-        const vec3 viewport_u(viewport_width, 0, 0);
-        const vec3 viewport_v(0, -viewport_height, 0);
+        const vec3 viewport_u = viewport_width * u;
+        const vec3 viewport_v = -viewport_height * v;
         pixel_delta_u = viewport_u / image_width;
         pixel_delta_v = viewport_v / image_height;
-        const point3 upper_left = camera_center - vec3(0, 0, focal_length) - viewport_u / 2 - viewport_v / 2;
+        const point3 upper_left = camera_center - focal_length * w - viewport_u / 2 - viewport_v / 2;
         first_pixel = upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
     }
 

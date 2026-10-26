@@ -4,13 +4,13 @@ A C++ class project following [Ray Tracing in One Weekend](https://raytracing.gi
 
 ## Current status
 
-Section 11 implemented: dielectric materials support Snell refraction, total internal reflection, and probabilistic reflection using Schlick's approximation. The left object is a hollow glass sphere with an air cavity; the right gold metal now has zero fuzz. The diffuse center and ground remain. Settings: 400x225, 100 samples per pixel, maximum depth 50, gamma-2 output. Next: Section 12, configurable camera position, orientation, and field of view.
+Section 12 implemented: the camera now supports configurable position (`lookfrom`), target (`lookat`), up direction (`vup`), and vertical field of view in degrees (`vfov`). The hollow-glass/diffuse/metal scene is viewed from (-2, 2, 1), toward (0, 0, -1), with a 20-degree vertical FOV. Settings remain 400x225, 100 samples per pixel, and depth 50. Next: Section 13, defocus blur (optional for the course checklist).
 
 ## Project layout
 
 ```text
 src/main.cpp     Scene construction and camera settings
-src/camera.h     Camera setup, jittered rays, sample averaging, and render loop
+src/camera.h     Configurable camera pose/FOV, jittered rays, and render loop
 src/random.h     Reproducible random values in [0, 1)
 src/interval.h   Valid ray parameter ranges
 src/hittable.h   Hit records and abstract intersection interface
@@ -20,6 +20,7 @@ src/hittable_list.h  Nearest-hit scene traversal
 tests/intersections.cpp  Intersection regression checks
 tests/diffuse.cpp  Sampling, recursion, and gamma regression checks
 tests/materials.cpp  Reflection, refraction, attenuation, fuzz, and boundary checks
+tests/camera.cpp  Camera pose, roll, FOV, pixel bounds, and invalid settings
 src/ray.h        Ray origin, direction, and at(t)
 src/vec3.h       Vector math, random directions, reflection, and refraction
 src/color.h      Color alias, gamma encoding, clamped PPM pixel output
@@ -72,15 +73,15 @@ Check off each milestone after building, running, and inspecting its result. The
 - [x] 09 — Diffuse Materials: add diffuse scattering and gamma correction.
 - [x] 10 — Metal: add reflective and fuzzy materials.
 - [x] 11 — Dielectrics: add glass and refraction.
-- [ ] 12 — Positionable Camera: render the scene from a new viewpoint.
+- [x] 12 — Positionable Camera: render the scene from a new viewpoint.
 - [ ] 13 — Defocus Blur: demonstrate depth of field.
 - [ ] 14 — Where Next?: render the final scene and record settings.
 
 ## First course checkpoint requirements
 
-This course checkpoint spans multiple textbook sections and additional features. Sections 6-11 complete sphere intersections, camera organization, antialiasing, and diffuse, specular, and dielectric materials. Camera configuration, triangles, textures, meshes, acceleration, and emissive materials remain.
+This course checkpoint spans multiple textbook sections and additional features. Sections 6-12 complete sphere intersections, configurable camera position/orientation/FOV, antialiasing, and diffuse, specular, and dielectric materials. Triangles, textures, meshes, acceleration, and emissive materials remain.
 
-- [ ] Camera with configurable position, orientation, and field of view (Sections 7 and 12).
+- [x] Camera with configurable position, orientation, and field of view (Sections 7 and 12).
 - [x] Anti-aliasing (Section 8).
 - [x] Ray/sphere intersections (Sections 5-6).
 - [ ] Ray/triangle intersections (extension).
@@ -168,6 +169,27 @@ A pixel represents an area of the image. Sampling only its center makes object b
 
 **Verification:** Release build and all three CTest suites passed. Added checks for Snell refraction into/out of glass, unit transmitted directions, unchanged normal-incidence transmission, total internal reflection, clear attenuation and hit origin, correct front/back index ratios, and normalization of non-unit input rays. Repeated samples check reflection frequency near 4% at normal incidence and increasing reflectance at grazing incidence. Tests trace a straight central ray through all four hollow-sphere boundaries to verify distances, front/back flags, and material identity. Invalid refractive indices are rejected. All 90,000 rendered pixels and RGB ranges were validated, then the PNG was visually inspected.
 
+### Section 12 learning notes
+
+**Public settings (`camera.h`, configured in `main.cpp`):**
+
+| Setting | Meaning | Current scene | Default |
+| --- | --- | --- | --- |
+| `lookfrom` | Camera position in world coordinates | (-2, 2, 1) | (0, 0, 0) |
+| `lookat` | Target point along the view direction | (0, 0, -1) | (0, 0, -1) |
+| `vup` | Reference up direction, controlling roll | (0, 1, 0) | (0, 1, 0) |
+| `vfov` | Vertical field of view in degrees | 20 | 90 |
+
+**Field of view:** Convert degrees to radians: `theta = vfov * pi / 180`. The viewport is placed distance d = `length(lookfrom - lookat)` from the camera. A right triangle with half-angle theta/2 gives `viewport_height = 2 * d * tan(theta / 2)`. Its width is the height multiplied by the actual image aspect ratio (`image_width / image_height`). Narrowing the angle magnifies the view without changing perspective; moving the camera changes perspective. This remains a pinhole camera, so d does not yet introduce depth-of-field blur.
+
+**Camera axes:** `w = unit_vector(lookfrom - lookat)` points backward, opposite the viewing direction. `u = unit_vector(cross(vup, w))` points right. `v = cross(w, u)` points up. These perpendicular unit axes form an orthonormal camera frame. `vup` need not be perpendicular to the view direction or have unit length: we normalize it before the cross product, and the resulting v is the perpendicular camera-relative up. Changing vup can roll the image.
+
+**Viewport and rays:** Replace fixed world X/Y viewport vectors with `viewport_width * u` and `-viewport_height * v`. The negative sign advances image rows downward. The upper-left corner is `lookfrom - d * w - viewport_u / 2 - viewport_v / 2`; add half a pixel step in each direction to locate the first pixel center. Existing jitter then selects a location within each pixel. Every ray starts at lookfrom and points toward that sampled location. `initialize()` rebuilds all derived geometry at the start of each render, allowing settings to change between renders.
+
+**Input checks:** Reject nonfinite vectors/FOV, FOV outside (0, 180), coincident or extremely close position/target, zero or parallel up vectors, and invalid image dimensions/aspect ratios before writing output. Degenerate vectors cannot form a valid camera basis. These checks extend the textbook implementation with explicit errors.
+
+**Scene and verification:** Objects and materials remain unchanged from Section 11, including polished gold metal. The elevated diagonal viewpoint and narrow FOV give a close view, with the glass sphere partly outside the frame. Release build and all four CTest suites passed. Camera tests capture emitted rays and verify origins, jittered pixel bounds, 20/60/90-degree FOV, rotation to face +X, roll, non-unit up, and setting changes between renders. They also confirm that increasing target distance along the same axis preserves angular bounds, and invalid configurations fail before ray generation. Validated all 90,000 PPM pixels and RGB ranges and visually inspected `renders/section12.png`. Outputs: `renders/section12.ppm` and `renders/section12.png` (ignored by Git); 400x225, 100 samples per pixel, max depth 50.
+
 ## Version control workflow
 
 After finishing a checkpoint, update its checkbox and record what you verified in the log below. Review changes before staging them:
@@ -206,8 +228,10 @@ Generated images and build files are ignored. To preserve a milestone image, del
 
 | 11 | 2026-10-26 | Release build and all three CTest suites passed. Hollow glass scene at 400x225, 100 samples/pixel, depth 50; tested refraction, total reflection, Schlick probabilities, and four cavity boundaries; validated pixels and inspected PNG. |
 
+| 12 | 2026-10-26 | Release build and all four CTest suites passed. Camera at (-2,2,1), target (0,0,-1), up (0,1,0), vfov 20; 400x225, 100 samples/pixel, depth 50. Validated ray geometry, output pixels, and PNG appearance. |
+
 For future entries, record image settings, what changed, and any remaining issues.
 
 ## Reference and attribution
 
-The linked book is the learning reference for this project. The interfaces and math in src/vec3.h and src/color.h follow Section 3, implemented with Codex assistance. The ray class and simple camera/background follow Section 4 with Codex assistance. The sphere intersection follows Section 5 with Codex assistance. The interval, hittable interface, hit records, oriented normals, sphere root selection, and object list follow Section 6 with Codex assistance. The camera class organization follows Section 7 with Codex assistance. Pixel jitter, sample accumulation, and averaging follow Section 8 with Codex assistance; the random helper uses the C++ standard library generator. Random direction rejection sampling, Lambertian scattering, recursive attenuation, depth limits, intersection tolerance, and gamma-2 conversion follow Section 9 with Codex assistance. The material interface, per-object albedo, mirror reflection, and fuzzy metal model follow Section 10 with Codex assistance. Snell refraction, total internal reflection, Schlick reflectance, and the relative-index hollow glass scene follow Section 11 with Codex assistance. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.
+The linked book is the learning reference for this project. The interfaces and math in src/vec3.h and src/color.h follow Section 3, implemented with Codex assistance. The ray class and simple camera/background follow Section 4 with Codex assistance. The sphere intersection follows Section 5 with Codex assistance. The interval, hittable interface, hit records, oriented normals, sphere root selection, and object list follow Section 6 with Codex assistance. The camera class organization follows Section 7 with Codex assistance. Pixel jitter, sample accumulation, and averaging follow Section 8 with Codex assistance; the random helper uses the C++ standard library generator. Random direction rejection sampling, Lambertian scattering, recursive attenuation, depth limits, intersection tolerance, and gamma-2 conversion follow Section 9 with Codex assistance. The material interface, per-object albedo, mirror reflection, and fuzzy metal model follow Section 10 with Codex assistance. Snell refraction, total internal reflection, Schlick reflectance, and the relative-index hollow glass scene follow Section 11 with Codex assistance. Viewport FOV geometry and camera frame construction follow Section 12 with Codex assistance. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.
