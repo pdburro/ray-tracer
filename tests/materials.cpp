@@ -1,3 +1,4 @@
+// Project regression tests for Book 1, Sections 10-11: metal and glass.
 #include "material.h"
 #include "sphere.h"
 #include "hittable_list.h"
@@ -10,6 +11,7 @@ int main()
     auto check = [&](bool condition, const char *message) {
         if (!condition) { std::cerr << message << '\n'; ++failures; }
     };
+    // Section 10: exact mirror directions and fuzzy metal absorption.
     const vec3 normal(0, 1, 0);
     const vec3 incoming(1, -1, 0);
     const vec3 reflection = reflect(incoming, normal);
@@ -58,6 +60,7 @@ int main()
     try { sphere invalid(point3(), 1, nullptr); }
     catch (const std::invalid_argument &) { rejected_null = true; }
     check(rejected_null, "Sphere must reject missing material");
+    // Section 11: Snell's law and total internal reflection.
     const vec3 incident(0.6, -0.8, 0);
     const vec3 bent = refract(incident, normal, 1.0 / 1.5);
     check(std::abs(bent.x() - 0.4) < 1e-12 && std::abs(bent.length() - 1) < 1e-12,
@@ -77,6 +80,7 @@ int main()
           && (scattered.origin() - record.p).near_zero(),
           "Clear glass must retain energy and launch at hit point");
 
+    // Section 11: check both branches and the angular trend in Schlick reflection.
     auto sample_boundary = [&](bool front_face, const vec3 &direction, double ratio) {
         record.front_face = front_face;
         int reflections = 0;
@@ -105,6 +109,7 @@ int main()
     const int grazing_reflections = sample_boundary(true, unit_vector(vec3(1, -0.05, 0)), 1.0 / 1.5);
     check(grazing_reflections > 7000, "Schlick reflectance must rise strongly at grazing angles");
 
+    // Section 11: the hollow sphere has four material crossings.
     auto shell = std::make_shared<dielectric>(1.5);
     auto cavity = std::make_shared<dielectric>(1.0 / 1.5);
     hittable_list hollow;

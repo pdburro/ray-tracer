@@ -1,7 +1,8 @@
+// Project regression tests for Book 1, Sections 9-10: sampling, gamma, and path depth.
 #include "camera.h"
 #include <sstream>
 
-// A synthetic scene that always hits, to check termination without relying on an image.
+// Section 9: always return a hit so the test can count bounces before termination.
 class endless_scene : public hittable
 {
 public:

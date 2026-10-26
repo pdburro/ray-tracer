@@ -30,6 +30,27 @@ renders/        Generated images (ignored by Git)
 
 Add headers under `src/` as you reach the corresponding concepts in the guide.
 
+## Reading the code alongside the book
+
+Source comments refer to **Book 1, Ray Tracing in One Weekend**. A section comment above a class or group of related helpers applies to that block; local comments identify later additions. Comments marked "Project" describe our validation, diagnostics, or regression tests rather than textbook listings.
+
+| Book section | Main implementation |
+| --- | --- |
+| 2: Output an Image | `camera::render`, `write_color` |
+| 3: The vec3 Class | `vec3.h`, the `point3`/`color` aliases |
+| 4: Rays, a Simple Camera, and Background | `ray.h`, the sky portion of `camera::ray_color` |
+| 5-6: Spheres, Normals, and Multiple Objects | `sphere::hit`, `hit_record`, `hittable`, `hittable_list`, `interval` |
+| 7: Camera Class | `camera::render`, `camera::initialize` |
+| 8: Antialiasing | `random_double`, `sample_square`, `get_ray`, sample averaging |
+| 9: Diffuse Materials | `random_unit_vector`, `lambertian_direction`, recursive `ray_color`, gamma encoding |
+| 10: Metal | `material`, `lambertian`, `metal`, `reflect`, material references in hits |
+| 11: Dielectrics | `dielectric`, `refract`, Schlick reflectance |
+| 12: Positionable Camera | Camera pose/FOV settings and the u/v/w frame in `initialize` |
+| 13: Defocus Blur | `random_in_unit_disk`, lens disk setup, `defocus_disk_sample`, `get_ray` |
+| 14: Final Scene | `main.cpp`, ranged random values, random colors |
+
+The tests in `tests/` are project checks, with comments naming the textbook features they exercise. The 2026-10-26 readability review added concise section references and explanations without changing executable code. Release build and all four CTest suites passed afterward.
+
 ## Build and run
 
 Requirements: CMake 3.16 or newer and a C++17 compiler. On Windows, Visual Studio Build Tools with the Desktop development with C++ workload is one option.
@@ -258,6 +279,8 @@ Generated images and build files are ignored. To preserve a milestone image, del
 | 13 | 2026-10-26 | Release build and all four CTest suites passed. Thin lens at focus_dist 3.4, defocus_angle 10 degrees; 400x225, 100 samples/pixel, depth 50. Tested lens distribution and focus-plane intersections; validated output and inspected comparison. |
 
 | 14 | 2026-10-26 | Release build and all four CTest suites passed. Final scene: 484 objects, 400x225, 25 samples/pixel, depth 50; rendered in about 30.6 seconds. Validated all 90,000 pixels and visually inspected PNG. First volume complete; course extensions remain. |
+
+| Code review | 2026-10-26 | Reviewed all source and test files; added Book 1 section references and concise math comments. Confirmed code text unchanged after excluding comments/whitespace; Release build and all four CTest suites passed. |
 
 For future entries, record image settings, what changed, and any remaining issues.
 

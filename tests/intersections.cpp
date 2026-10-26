@@ -1,3 +1,4 @@
+// Project regression tests for Book 1, Sections 5-6 (hits) and 10 (materials).
 #include "hittable_list.h"
 #include "sphere.h"
 #include "material.h"

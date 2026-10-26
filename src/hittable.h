@@ -5,8 +5,10 @@
 #include "ray.h"
 #include <memory>
 
+// Section 10: a forward declaration keeps material and hit records from including each other.
 class material;
 
+// Book 1, Section 6: intersection data; Section 10 adds the material pointer.
 struct hit_record
 {
     point3 p;
@@ -15,6 +17,7 @@ struct hit_record
     double t = 0;
     bool front_face = false;
 
+    // Section 6: keep the normal opposed to the ray and remember entry/exit.
     void set_face_normal(const ray &r, const vec3 &outward_normal)
     {
         front_face = dot(r.direction(), outward_normal) < 0;
@@ -22,6 +25,7 @@ struct hit_record
     }
 };
 
+// Section 6: one intersection interface for individual objects and whole scenes.
 class hittable
 {
 public:

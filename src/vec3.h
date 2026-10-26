@@ -1,7 +1,7 @@
 #ifndef VEC3_H
 #define VEC3_H
 
-// Section 3
+// Book 1, Section 3: vector storage and arithmetic.
 #include <cmath>
 #include <ostream>
 #include "random.h"
@@ -14,6 +14,7 @@ public:
     vec3() : e{0, 0, 0} {}
     vec3(double x, double y, double z) : e{x, y, z} {}
 
+    // Sections 9 and 14: random vectors for scattering and scene colors.
     static vec3 random(double minimum = 0, double maximum = 1)
     {
         const double x = random_double(minimum, maximum);
@@ -47,14 +48,17 @@ public:
     vec3 &operator/=(double scale) { return *this *= 1.0 / scale; }
     double length_squared() const { return x() * x() + y() * y() + z() * z(); }
     double length() const { return std::sqrt(length_squared()); }
+    // Section 10: avoid a zero direction when the normal and sample cancel.
     bool near_zero() const
     {
         return std::fabs(x()) < 1e-8 && std::fabs(y()) < 1e-8 && std::fabs(z()) < 1e-8;
     }
 };
 
+// Section 3: points use the same coordinates and operations as vectors.
 using point3 = vec3;
 
+// Section 3: vector output, arithmetic, dot/cross products, and normalization.
 inline std::ostream &operator<<(std::ostream &out, const vec3 &v)
 {
     return out << v.x() << ' ' << v.y() << ' ' << v.z();
@@ -85,13 +89,14 @@ inline vec3 cross(const vec3 &a, const vec3 &b)
 
 inline vec3 unit_vector(const vec3 &v) { return v / v.length(); }
 
-// The normal must have unit length.
+// Section 10: mirror reflection; the normal must have unit length.
 inline vec3 reflect(const vec3 &v, const vec3 &normal)
 {
     return v - 2 * dot(v, normal) * normal;
 }
 
-// Unit incoming direction, unit normal opposing it, and n_in / n_out.
+// Section 11: Snell refraction. Inputs are a unit direction, opposing unit normal,
+// and the index ratio n_in / n_out.
 // The caller must rule out total internal reflection first.
 inline vec3 refract(const vec3 &incoming, const vec3 &normal, double ratio)
 {
@@ -101,6 +106,7 @@ inline vec3 refract(const vec3 &incoming, const vec3 &normal, double ratio)
     return perpendicular + parallel;
 }
 
+// Section 9: reject points outside the unit sphere, then normalize.
 inline vec3 random_unit_vector()
 {
     while (true)
@@ -116,12 +122,14 @@ inline vec3 random_unit_vector()
     }
 }
 
+// Sections 9-10: adding the normal gives cosine-weighted diffuse directions.
 inline vec3 lambertian_direction(const vec3 &normal)
 {
     const vec3 direction = normal + random_unit_vector();
     return direction.near_zero() ? normal : direction;
 }
 
+// Section 13: sample the lens area, rather than just its rim.
 inline vec3 random_in_unit_disk()
 {
     while (true)
