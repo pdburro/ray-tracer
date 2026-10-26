@@ -14,6 +14,14 @@ public:
     vec3() : e{0, 0, 0} {}
     vec3(double x, double y, double z) : e{x, y, z} {}
 
+    static vec3 random(double minimum = 0, double maximum = 1)
+    {
+        const double x = random_double(minimum, maximum);
+        const double y = random_double(minimum, maximum);
+        const double z = random_double(minimum, maximum);
+        return vec3(x, y, z);
+    }
+
     double x() const { return e[0]; }
     double y() const { return e[1]; }
     double z() const { return e[2]; }

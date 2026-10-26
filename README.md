@@ -4,14 +4,14 @@ A C++ class project following [Ray Tracing in One Weekend](https://raytracing.gi
 
 ## Current status
 
-Section 13 implemented: the camera supports thin-lens defocus blur using a sampled lens disk and configurable focus plane. Current settings: `defocus_angle = 10` degrees, `focus_dist = 3.4`, camera (-2, 2, 1) toward (0, 0, -1), vertical FOV 20 degrees. The hollow-glass/diffuse/metal scene renders at 400x225, 100 samples per pixel, depth 50. Set `defocus_angle = 0` to disable blur. Next: Section 14, the final random-sphere scene; course extensions still remain.
+Section 14 implemented: the first volume's final random-sphere scene combines diffuse, metal, glass, antialiasing, configurable camera pose/FOV, and depth of field. The current fixed-seed scene contains 484 objects: 480 small spheres, three large feature spheres, and ground. Development render settings are 400x225, 25 samples per pixel, and depth 50. The first volume is complete; the remaining course requirements are triangles, image textures, textured spheres/triangles, mesh loading, acceleration, and emissive materials.
 
 ## Project layout
 
 ```text
-src/main.cpp     Scene construction and camera settings
+src/main.cpp     Final random-sphere scene construction and camera settings
 src/camera.h     Camera pose/FOV, focus/lens sampling, jittered rays, and rendering
-src/random.h     Reproducible random values in [0, 1)
+src/random.h     Reproducible random values in [0, 1) or a specified range
 src/interval.h   Valid ray parameter ranges
 src/hittable.h   Hit records and abstract intersection interface
 src/sphere.h     Sphere intersections, oriented normals, assigned material
@@ -75,7 +75,7 @@ Check off each milestone after building, running, and inspecting its result. The
 - [x] 11 — Dielectrics: add glass and refraction.
 - [x] 12 — Positionable Camera: render the scene from a new viewpoint.
 - [x] 13 — Defocus Blur: demonstrate depth of field.
-- [ ] 14 — Where Next?: render the final scene and record settings.
+- [x] 14 — Where Next?: render the final scene and record settings.
 
 ## First course checkpoint requirements
 
@@ -206,6 +206,24 @@ A pixel represents an area of the image. Sampling only its center makes object b
 
 **Verification:** Release build and all four CTest suites passed. Camera tests now intersect captured rays with the focus plane and check that each lands inside its intended jittered pixel region. They verify origins within the correctly oriented lens disk, varied origins at positive aperture, multiple focus distances, and pinhole origins after disabling blur. A 20,000-sample disk check verifies bounds, near-zero mean, and mean squared radius near 1/2, as expected for uniform disk area. Added invalid focus/aperture checks. Validated all 90,000 output pixels and RGB ranges and visually inspected the side-by-side comparison.
 
+### Section 14 learning notes
+
+**Purpose:** This section adds a complex scene using the renderer built in Sections 2-13. It does not add a new scattering model. Scene construction is in `src/main.cpp`; the new ranged `random_double(min, max)` and `vec3::random(min, max)` helpers support random positions and material colors. Random values are evaluated in explicit order so construction does not depend on C++ argument evaluation order.
+
+**Scene generation:** A gray diffuse sphere centered at (0, -1000, 0), radius 1000, forms the ground. Iterate a 22x22 grid with a and b from -11 through 10. Each candidate small sphere has center `(a + 0.9 * random, 0.2, b + 0.9 * random)` and radius 0.2, placing it on the ground near its grid cell. Skip candidates within 0.9 of (4, 0.2, 0) to leave room for the large metal sphere, following the book. This is not a general sphere packing or overlap prevention algorithm.
+
+**Materials:** Choose diffuse with probability 0.8, metal with probability 0.15, and glass with probability 0.05. Diffuse albedo is the component-wise product of two random RGB colors, favoring darker colors. Metal albedo channels lie in [0.5, 1), with fuzz in [0, 0.5). Glass uses index 1.5. Add three radius-1 spheres: glass at (0, 1, 0), brown diffuse at (-4, 1, 0) with albedo (0.4, 0.2, 0.1), and polished metal at (4, 1, 0) with albedo (0.7, 0.6, 0.5). These are solid spheres; this final scene replaces the earlier hollow-glass demonstration.
+
+**Reproducibility:** The random generator begins with seed 5489 on each fresh program run. On the verified toolchain the scene has 378 small diffuse spheres, 79 small metal spheres, and 23 small glass spheres: 480 small spheres plus three large spheres and ground = 484 objects. Scene counts are written to stderr through `std::clog`, keeping PPM stdout clean. Standard-library distribution implementations can differ across toolchains, so exact layouts are not promised across platforms.
+
+**Camera:** Position (13, 2, 3), target (0, 0, 0), up (0, 1, 0), vertical FOV 20 degrees, defocus angle 0.6 degrees, focus distance 10, and maximum depth 50. This gives a wide arrangement of spheres with a narrow viewing angle, subtle depth blur, reflections, and refracted surroundings.
+
+**Render quality:** The verified development settings are width 400, height 225, and 25 samples per pixel (2,250,000 primary paths, plus scattered rays). For the book's high-quality render, change `cam.image_width` to 1200 and `cam.samples_per_pixel` to 500 in `src/main.cpp`; height becomes 675. That is 180 times as many primary samples, before differences in path work. The current scene still checks every object per ray, so render cost is substantial and grain remains at development quality. A BVH acceleration structure is a remaining course requirement.
+
+**Verification:** Release build and all four CTest suites passed. The development render exited successfully in about 30.6 seconds on this machine. Validated all 90,000 PPM pixels, RGB byte ranges, and nontrivial image content, then visually inspected the PNG for the sphere arrangement, diffuse surfaces, metal reflections, refracted surroundings, and defocus blur. Outputs: `renders/section14.ppm` and `renders/section14.png`, ignored by Git.
+
+**Course work still outstanding:** Ray/triangle intersections; loading image textures and applying UVs to spheres and triangles; loading and rendering triangle meshes; a spatial acceleration structure such as a BVH; and emissive materials/lights. Completing the first volume does not complete this course checkpoint. The second volume supplies texture, BVH, and light concepts; triangles and mesh I/O need additional implementation.
+
 ## Version control workflow
 
 After finishing a checkpoint, update its checkbox and record what you verified in the log below. Review changes before staging them:
@@ -229,27 +247,20 @@ Generated images and build files are ignored. To preserve a milestone image, del
 | 00 | 2026-09-10 | Starter files added; compilation has not yet been verified. |
 | 01-03 | 2026-09-29 | Release build succeeded; generated a 256x256 rainbow PPM and checked pixel count and integer channel ranges. Added Section 3 vector/color helpers and progress reporting. |
 | 04 | 2026-10-20 | Release build passed; checked 400x225 PPM pixel count, channel ranges, and blue-to-white direction. |
-
 | 05 | 2026-10-20 | Release build passed; verified all 90,000 pixels against the projected sphere silhouette, including 13,254 red pixels, and checked PPM channel ranges. |
-
 | 06 | 2026-10-26 | Release build and CTest passed. Rendered 400x225 at one ray per pixel; independently checked all 90,000 pixels (13,254 foreground sphere, 33,894 ground, 42,852 sky), channel ranges, and visually inspected the PNG preview. |
-
 | 07 | 2026-10-26 | Release build and CTest passed. Moved camera/render code to camera.h; 400x225 PPM is byte-for-byte identical to Section 6. |
-
 | 08 | 2026-10-26 | Release build and CTest passed; rendered 400x225 at 100 samples/pixel. Validated PPM and inspected enlarged edges; boundary RGB RMSE against a 16x16 reference improved from 25.204 to 3.662. |
-
 | 09 | 2026-10-26 | Release build and both CTest suites passed. Lambertian scene at 400x225, 100 samples/pixel, depth 50; validated 90,000 pixels and visually inspected gamma-corrected PNG. |
-
 | 10 | 2026-10-26 | Release build and all three CTest suites passed. Four-sphere diffuse/fuzzy-metal scene at 400x225, 100 samples/pixel, depth 50; validated 90,000 pixels and visually inspected PNG. |
-
 | 11 | 2026-10-26 | Release build and all three CTest suites passed. Hollow glass scene at 400x225, 100 samples/pixel, depth 50; tested refraction, total reflection, Schlick probabilities, and four cavity boundaries; validated pixels and inspected PNG. |
-
 | 12 | 2026-10-26 | Release build and all four CTest suites passed. Camera at (-2,2,1), target (0,0,-1), up (0,1,0), vfov 20; 400x225, 100 samples/pixel, depth 50. Validated ray geometry, output pixels, and PNG appearance. |
-
 | 13 | 2026-10-26 | Release build and all four CTest suites passed. Thin lens at focus_dist 3.4, defocus_angle 10 degrees; 400x225, 100 samples/pixel, depth 50. Tested lens distribution and focus-plane intersections; validated output and inspected comparison. |
+
+| 14 | 2026-10-26 | Release build and all four CTest suites passed. Final scene: 484 objects, 400x225, 25 samples/pixel, depth 50; rendered in about 30.6 seconds. Validated all 90,000 pixels and visually inspected PNG. First volume complete; course extensions remain. |
 
 For future entries, record image settings, what changed, and any remaining issues.
 
 ## Reference and attribution
 
-The linked book is the learning reference for this project. The interfaces and math in src/vec3.h and src/color.h follow Section 3, implemented with Codex assistance. The ray class and simple camera/background follow Section 4 with Codex assistance. The sphere intersection follows Section 5 with Codex assistance. The interval, hittable interface, hit records, oriented normals, sphere root selection, and object list follow Section 6 with Codex assistance. The camera class organization follows Section 7 with Codex assistance. Pixel jitter, sample accumulation, and averaging follow Section 8 with Codex assistance; the random helper uses the C++ standard library generator. Random direction rejection sampling, Lambertian scattering, recursive attenuation, depth limits, intersection tolerance, and gamma-2 conversion follow Section 9 with Codex assistance. The material interface, per-object albedo, mirror reflection, and fuzzy metal model follow Section 10 with Codex assistance. Snell refraction, total internal reflection, Schlick reflectance, and the relative-index hollow glass scene follow Section 11 with Codex assistance. Viewport FOV geometry and camera frame construction follow Section 12 with Codex assistance. Thin-lens geometry, disk sampling, focus distance, and defocus angle follow Section 13 with Codex assistance. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.
+The linked book is the learning reference for this project. The interfaces and math in src/vec3.h and src/color.h follow Section 3, implemented with Codex assistance. The ray class and simple camera/background follow Section 4 with Codex assistance. The sphere intersection follows Section 5 with Codex assistance. The interval, hittable interface, hit records, oriented normals, sphere root selection, and object list follow Section 6 with Codex assistance. The camera class organization follows Section 7 with Codex assistance. Pixel jitter, sample accumulation, and averaging follow Section 8 with Codex assistance; the random helper uses the C++ standard library generator. Random direction rejection sampling, Lambertian scattering, recursive attenuation, depth limits, intersection tolerance, and gamma-2 conversion follow Section 9 with Codex assistance. The material interface, per-object albedo, mirror reflection, and fuzzy metal model follow Section 10 with Codex assistance. Snell refraction, total internal reflection, Schlick reflectance, and the relative-index hollow glass scene follow Section 11 with Codex assistance. Viewport FOV geometry and camera frame construction follow Section 12 with Codex assistance. Thin-lens geometry, disk sampling, focus distance, and defocus angle follow Section 13 with Codex assistance. The random-sphere scene, material probabilities, feature spheres, and final camera settings follow Section 14 with Codex assistance; development resolution and sample count are reduced from the high-quality book settings. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.

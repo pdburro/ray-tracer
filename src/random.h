@@ -11,4 +11,9 @@ inline double random_double()
     return distribution(generator); // [0, 1)
 }
 
+inline double random_double(double minimum, double maximum)
+{
+    return minimum + (maximum - minimum) * random_double();
+}
+
 #endif
