@@ -4,7 +4,7 @@ A C++ class project following [Ray Tracing in One Weekend](https://raytracing.gi
 
 ## Current status
 
-Section 10 implemented: per-object Lambertian and metal materials now control scattering and RGB attenuation. The scene contains yellow diffuse ground, a blue diffuse center sphere, silver metal (fuzz 0.3) on the left, and gold-colored metal (fuzz 1.0) on the right. Settings remain 400x225, 100 samples per pixel, and depth 50 with gamma-2 output encoding. Next: Section 11, dielectrics (glass/refraction).
+Section 11 implemented: dielectric materials support Snell refraction, total internal reflection, and probabilistic reflection using Schlick's approximation. The left object is a hollow glass sphere with an air cavity; the right gold metal now has zero fuzz. The diffuse center and ground remain. Settings: 400x225, 100 samples per pixel, maximum depth 50, gamma-2 output. Next: Section 12, configurable camera position, orientation, and field of view.
 
 ## Project layout
 
@@ -15,13 +15,13 @@ src/random.h     Reproducible random values in [0, 1)
 src/interval.h   Valid ray parameter ranges
 src/hittable.h   Hit records and abstract intersection interface
 src/sphere.h     Sphere intersections, oriented normals, assigned material
-src/material.h   Abstract scatter interface, Lambertian diffuse, and fuzzy metal
+src/material.h   Scatter interface, Lambertian diffuse, metal, and dielectric glass
 src/hittable_list.h  Nearest-hit scene traversal
 tests/intersections.cpp  Intersection regression checks
 tests/diffuse.cpp  Sampling, recursion, and gamma regression checks
-tests/materials.cpp  Reflection, attenuation, fuzz, and material checks
+tests/materials.cpp  Reflection, refraction, attenuation, fuzz, and boundary checks
 src/ray.h        Ray origin, direction, and at(t)
-src/vec3.h       Vector math, random unit vectors, Lambertian directions
+src/vec3.h       Vector math, random directions, reflection, and refraction
 src/color.h      Color alias, gamma encoding, clamped PPM pixel output
 CMakeLists.txt   C++ build configuration
 renders/        Generated images (ignored by Git)
@@ -71,14 +71,14 @@ Check off each milestone after building, running, and inspecting its result. The
 - [x] 08 — Antialiasing: compare sampled edges with the earlier image.
 - [x] 09 — Diffuse Materials: add diffuse scattering and gamma correction.
 - [x] 10 — Metal: add reflective and fuzzy materials.
-- [ ] 11 — Dielectrics: add glass and refraction.
+- [x] 11 — Dielectrics: add glass and refraction.
 - [ ] 12 — Positionable Camera: render the scene from a new viewpoint.
 - [ ] 13 — Defocus Blur: demonstrate depth of field.
 - [ ] 14 — Where Next?: render the final scene and record settings.
 
 ## First course checkpoint requirements
 
-This course checkpoint spans multiple textbook sections and additional features. Sections 6-10 complete sphere intersections, camera organization, antialiasing, per-object materials, diffuse shading, and specular/fuzzy metal. The combined materials requirement remains unchecked until dielectric materials are implemented in Section 11.
+This course checkpoint spans multiple textbook sections and additional features. Sections 6-11 complete sphere intersections, camera organization, antialiasing, and diffuse, specular, and dielectric materials. Camera configuration, triangles, textures, meshes, acceleration, and emissive materials remain.
 
 - [ ] Camera with configurable position, orientation, and field of view (Sections 7 and 12).
 - [x] Anti-aliasing (Section 8).
@@ -88,7 +88,7 @@ This course checkpoint spans multiple textbook sections and additional features.
 - [ ] Textured spheres and triangles with UV coordinates (extension).
 - [ ] Load and render triangle meshes (extension; OBJ is a possible initial format).
 - [ ] Spatial subdivision acceleration structure (extension; BVH is an option).
-- [ ] Specular, diffuse, and dielectric materials (Sections 9-11).
+- [x] Specular, diffuse, and dielectric materials (Sections 9-11).
 - [ ] Emissive materials / lights (extension).
 
 Texture, BVH, and emissive concepts are covered in the series' second volume; triangles and mesh loading require additional implementation. Defocus blur is optional for this course checklist.
@@ -153,6 +153,21 @@ A pixel represents an area of the image. Sampling only its center makes object b
 
 **Verification:** Release build and all three CTest suites passed. Added checks for exact zero-fuzz reflection, length preservation, invariance to incoming ray length, scatter origins and albedo, lower/upper fuzz clamping, and both accepted and absorbed grazing bounces. Existing intersection tests now verify material propagation; diffuse recursion tests now use an assigned Lambertian material. Rejected null sphere materials are also tested. Validated all 90,000 output pixels and byte ranges, and visually inspected `renders/section10.png`. Settings: 400x225, 100 samples per pixel, maximum depth 50. PPM and PNG outputs in `renders/` remain ignored by Git.
 
+### Section 11 learning notes
+
+**What changes:** `dielectric` implements the existing material interface, so the camera and sphere intersection code need no changes. `refract()` in `vec3.h` supplies the new direction math. Glass has attenuation (1, 1, 1): this is ideal clear, nonabsorbing glass with no tint or wavelength-dependent dispersion.
+
+1. **Snell's law:** `n_in * sin(theta_in) = n_out * sin(theta_out)`. Air to glass uses ratio `n_in / n_out = 1 / 1.5`; glass to air uses 1.5. Higher-index glass bends transmitted light toward the normal on entry and away on exit. Angles are measured from the normal. At normal incidence the transmitted direction is unchanged.
+2. **Vector refraction:** Normalize the incoming direction u, compute `cos_theta = dot(-u, normal)`, and scale the surface-tangent component: `perpendicular = ratio * (u + cos_theta * normal)`. Complete a unit outgoing direction with `parallel = -sqrt(abs(1 - perpendicular.length_squared())) * normal`. The result is their sum. The absolute value protects against tiny rounding errors; it does not make impossible refraction valid, so the caller checks for total reflection first.
+3. **Entering or leaving:** The constructor stores the object's refractive index divided by that of the enclosing medium. A front-face hit uses its reciprocal for the incoming/outgoing ratio; a back-face hit uses the stored value. The existing hit normal always opposes the incident ray. Constructor indices must be positive and finite.
+4. **Total internal reflection:** Compute `sin_theta = sqrt(1 - cos_theta * cos_theta)`. If `ratio * sin_theta > 1`, no transmitted angle exists and the ray must reflect. This occurs when crossing from higher to lower index at sufficiently grazing incidence. For glass (1.5) to air (1), the critical angle is about 41.8 degrees. An air bubble in a denser enclosing medium can also exhibit this at a front-face hit.
+5. **Schlick approximation:** `R0 = ((1 - ratio) / (1 + ratio))^2`, then `R = R0 + (1 - R0) * (1 - cos_theta)^5`. Normal-incidence air/glass reflectance is about 4%; grazing reflectance approaches 100%. When transmission is possible, compare R with a random value in [0, 1) to choose one reflected or refracted ray. We do not multiply by R again: choosing the branch with that probability already supplies its weight across samples. One child ray per interaction avoids exponential path branching.
+6. **Hollow glass:** The left outer sphere at (-1, 0, -1) has radius 0.5 and dielectric index 1.5. Its concentric air cavity has positive radius 0.4 and relative index `1 / 1.5`. A transmitted path can cross air -> glass -> cavity air -> glass -> outside air. This follows the current textbook's relative-index approach; no negative-radius sphere is needed. These explicitly assigned relative indices describe the known nesting; there is no general automatic medium stack.
+
+**Scene and output:** The blue diffuse center and yellow diffuse ground remain. The right gold metal now uses fuzz 0 to match the book's final Section 11 scene. The hollow sphere transmits a distorted view and reflects its surroundings, especially near the rim. Outputs: `renders/section11.ppm` and `renders/section11.png` (ignored by Git). Settings remain 400x225, 100 samples per pixel, depth 50. Some sampling grain remains.
+
+**Verification:** Release build and all three CTest suites passed. Added checks for Snell refraction into/out of glass, unit transmitted directions, unchanged normal-incidence transmission, total internal reflection, clear attenuation and hit origin, correct front/back index ratios, and normalization of non-unit input rays. Repeated samples check reflection frequency near 4% at normal incidence and increasing reflectance at grazing incidence. Tests trace a straight central ray through all four hollow-sphere boundaries to verify distances, front/back flags, and material identity. Invalid refractive indices are rejected. All 90,000 rendered pixels and RGB ranges were validated, then the PNG was visually inspected.
+
 ## Version control workflow
 
 After finishing a checkpoint, update its checkbox and record what you verified in the log below. Review changes before staging them:
@@ -189,8 +204,10 @@ Generated images and build files are ignored. To preserve a milestone image, del
 
 | 10 | 2026-10-26 | Release build and all three CTest suites passed. Four-sphere diffuse/fuzzy-metal scene at 400x225, 100 samples/pixel, depth 50; validated 90,000 pixels and visually inspected PNG. |
 
+| 11 | 2026-10-26 | Release build and all three CTest suites passed. Hollow glass scene at 400x225, 100 samples/pixel, depth 50; tested refraction, total reflection, Schlick probabilities, and four cavity boundaries; validated pixels and inspected PNG. |
+
 For future entries, record image settings, what changed, and any remaining issues.
 
 ## Reference and attribution
 
-The linked book is the learning reference for this project. The interfaces and math in src/vec3.h and src/color.h follow Section 3, implemented with Codex assistance. The ray class and simple camera/background follow Section 4 with Codex assistance. The sphere intersection follows Section 5 with Codex assistance. The interval, hittable interface, hit records, oriented normals, sphere root selection, and object list follow Section 6 with Codex assistance. The camera class organization follows Section 7 with Codex assistance. Pixel jitter, sample accumulation, and averaging follow Section 8 with Codex assistance; the random helper uses the C++ standard library generator. Random direction rejection sampling, Lambertian scattering, recursive attenuation, depth limits, intersection tolerance, and gamma-2 conversion follow Section 9 with Codex assistance. The material interface, per-object albedo, mirror reflection, and fuzzy metal model follow Section 10 with Codex assistance. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.
+The linked book is the learning reference for this project. The interfaces and math in src/vec3.h and src/color.h follow Section 3, implemented with Codex assistance. The ray class and simple camera/background follow Section 4 with Codex assistance. The sphere intersection follows Section 5 with Codex assistance. The interval, hittable interface, hit records, oriented normals, sphere root selection, and object list follow Section 6 with Codex assistance. The camera class organization follows Section 7 with Codex assistance. Pixel jitter, sample accumulation, and averaging follow Section 8 with Codex assistance; the random helper uses the C++ standard library generator. Random direction rejection sampling, Lambertian scattering, recursive attenuation, depth limits, intersection tolerance, and gamma-2 conversion follow Section 9 with Codex assistance. The material interface, per-object albedo, mirror reflection, and fuzzy metal model follow Section 10 with Codex assistance. Snell refraction, total internal reflection, Schlick reflectance, and the relative-index hollow glass scene follow Section 11 with Codex assistance. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.

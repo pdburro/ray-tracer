@@ -4,6 +4,7 @@
 #include "color.h"
 #include "hittable.h"
 #include <algorithm>
+#include <stdexcept>
 
 class material
 {
@@ -48,6 +49,45 @@ public:
 private:
     color albedo_;
     double fuzz_;
+};
+
+class dielectric : public material
+{
+public:
+    // Index of this object's medium divided by that of its enclosing medium.
+    explicit dielectric(double refraction_index) : refraction_index_(refraction_index)
+    {
+        if (!(refraction_index > 0) || !std::isfinite(refraction_index))
+            throw std::invalid_argument("Refraction index must be finite and positive");
+    }
+
+    bool scatter(const ray &incoming, const hit_record &record,
+                 color &attenuation, ray &scattered) const override
+    {
+        attenuation = color(1, 1, 1); // Clear, nonabsorbing glass.
+        const double ratio = record.front_face ? 1.0 / refraction_index_ : refraction_index_;
+        const vec3 unit_direction = unit_vector(incoming.direction());
+        const double cosine = std::clamp(dot(-unit_direction, record.normal), 0.0, 1.0);
+        const double sine = std::sqrt(1.0 - cosine * cosine);
+        const bool cannot_refract = ratio * sine > 1.0;
+        vec3 direction;
+        if (cannot_refract || reflectance(cosine, ratio) > random_double())
+            direction = reflect(unit_direction, record.normal);
+        else
+            direction = refract(unit_direction, record.normal, ratio);
+        scattered = ray(record.p, direction);
+        return true;
+    }
+
+private:
+    double refraction_index_;
+
+    static double reflectance(double cosine, double ratio)
+    {
+        double r0 = (1 - ratio) / (1 + ratio);
+        r0 *= r0;
+        return r0 + (1 - r0) * std::pow(1 - cosine, 5);
+    }
 };
 
 #endif

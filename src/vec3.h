@@ -83,6 +83,16 @@ inline vec3 reflect(const vec3 &v, const vec3 &normal)
     return v - 2 * dot(v, normal) * normal;
 }
 
+// Unit incoming direction, unit normal opposing it, and n_in / n_out.
+// The caller must rule out total internal reflection first.
+inline vec3 refract(const vec3 &incoming, const vec3 &normal, double ratio)
+{
+    const double cosine = std::fmin(dot(-incoming, normal), 1.0);
+    const vec3 perpendicular = ratio * (incoming + cosine * normal);
+    const vec3 parallel = -std::sqrt(std::fabs(1.0 - perpendicular.length_squared())) * normal;
+    return perpendicular + parallel;
+}
+
 inline vec3 random_unit_vector()
 {
     while (true)
