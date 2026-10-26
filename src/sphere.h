@@ -7,10 +7,13 @@
 class sphere : public hittable
 {
 public:
-    sphere(const point3 &center, double radius) : center_(center), radius_(radius)
+    sphere(const point3 &center, double radius, std::shared_ptr<material> mat)
+        : center_(center), radius_(radius), mat_(mat)
     {
         if (!(radius > 0))
             throw std::invalid_argument("Sphere radius must be positive");
+        if (!mat_)
+            throw std::invalid_argument("Sphere material must not be null");
     }
 
     bool hit(const ray &r, interval ray_t, hit_record &record) const override
@@ -33,6 +36,7 @@ public:
 
         record.t = root;
         record.p = r.at(root);
+        record.mat = mat_;
         record.set_face_normal(r, (record.p - center_) / radius_);
         return true;
     }
@@ -40,6 +44,7 @@ public:
 private:
     point3 center_;
     double radius_;
+    std::shared_ptr<material> mat_;
 };
 
 #endif

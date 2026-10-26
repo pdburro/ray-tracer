@@ -4,7 +4,7 @@ A C++ class project following [Ray Tracing in One Weekend](https://raytracing.gi
 
 ## Current status
 
-Section 9 implemented: sphere and ground now use Lambertian diffuse scattering with fixed 50% reflectance, recursive sky-light gathering, a maximum depth of 50, and gamma-2 output encoding. The scene renders at 400x225 and 100 samples per pixel. Camera position/orientation and field of view remain fixed until Section 12. Next: Section 10, material objects and metal.
+Section 10 implemented: per-object Lambertian and metal materials now control scattering and RGB attenuation. The scene contains yellow diffuse ground, a blue diffuse center sphere, silver metal (fuzz 0.3) on the left, and gold-colored metal (fuzz 1.0) on the right. Settings remain 400x225, 100 samples per pixel, and depth 50 with gamma-2 output encoding. Next: Section 11, dielectrics (glass/refraction).
 
 ## Project layout
 
@@ -14,10 +14,12 @@ src/camera.h     Camera setup, jittered rays, sample averaging, and render loop
 src/random.h     Reproducible random values in [0, 1)
 src/interval.h   Valid ray parameter ranges
 src/hittable.h   Hit records and abstract intersection interface
-src/sphere.h     Sphere roots and oriented surface normals
+src/sphere.h     Sphere intersections, oriented normals, assigned material
+src/material.h   Abstract scatter interface, Lambertian diffuse, and fuzzy metal
 src/hittable_list.h  Nearest-hit scene traversal
 tests/intersections.cpp  Intersection regression checks
 tests/diffuse.cpp  Sampling, recursion, and gamma regression checks
+tests/materials.cpp  Reflection, attenuation, fuzz, and material checks
 src/ray.h        Ray origin, direction, and at(t)
 src/vec3.h       Vector math, random unit vectors, Lambertian directions
 src/color.h      Color alias, gamma encoding, clamped PPM pixel output
@@ -68,7 +70,7 @@ Check off each milestone after building, running, and inspecting its result. The
 - [x] 07 — Moving Camera Code Into Its Own Class: preserve the rendered scene.
 - [x] 08 — Antialiasing: compare sampled edges with the earlier image.
 - [x] 09 — Diffuse Materials: add diffuse scattering and gamma correction.
-- [ ] 10 — Metal: add reflective and fuzzy materials.
+- [x] 10 — Metal: add reflective and fuzzy materials.
 - [ ] 11 — Dielectrics: add glass and refraction.
 - [ ] 12 — Positionable Camera: render the scene from a new viewpoint.
 - [ ] 13 — Defocus Blur: demonstrate depth of field.
@@ -76,7 +78,7 @@ Check off each milestone after building, running, and inspecting its result. The
 
 ## First course checkpoint requirements
 
-This course checkpoint spans multiple textbook sections and additional features. Sections 6-9 complete sphere intersections, camera organization, antialiasing, and initial diffuse shading. Per-object material classes, metal, and glass are still ahead.
+This course checkpoint spans multiple textbook sections and additional features. Sections 6-10 complete sphere intersections, camera organization, antialiasing, per-object materials, diffuse shading, and specular/fuzzy metal. The combined materials requirement remains unchecked until dielectric materials are implemented in Section 11.
 
 - [ ] Camera with configurable position, orientation, and field of view (Sections 7 and 12).
 - [x] Anti-aliasing (Section 8).
@@ -135,6 +137,22 @@ A pixel represents an area of the image. Sampling only its center makes object b
 
 **Verification:** Release build and both CTest suites passed. New tests check 20,000 unit-vector and Lambertian samples, outward nonzero directions, directional bias, mean cosine near 2/3 (the cosine-weighted distribution), recursion termination with an always-hit synthetic scene, the 0.001 hit tolerance, gamma conversion, and byte clamping. Validated all 90,000 rendered pixels and channel ranges, then visually inspected `renders/section09.png`. The render uses 400x225, 100 samples per pixel, and depth 50. Outputs are `renders/section09.ppm` and `renders/section09.png`, ignored by Git.
 
+### Section 10 learning notes
+
+**Separating shape from material:** Geometry answers where a ray hits; a material answers what happens there. `material.h` defines an abstract `scatter(incoming, record, attenuation, scattered)` interface. A true result supplies a new ray and RGB attenuation; false means absorption. `lambertian` and `metal` implement that interface, allowing the camera to trace either without material-specific branches.
+
+**Connecting objects and materials:** Each sphere requires a non-null `shared_ptr<material>` and copies it into the hit record when intersected. Shared pointers let several objects reuse one material and keep it alive while referenced. `hittable.h` forward-declares `material` because a pointer does not require its full definition; `material.h` includes the hit record definition. This avoids circular header dependencies.
+
+**Diffuse albedo:** `lambertian` retains Section 9's `lambertian_direction(normal)` sampling, including the near-zero fallback. Its attenuation is now a per-material color instead of fixed gray 0.5. For example, blue albedo (0.1, 0.2, 0.5) retains 10% of red, 20% of green, and 50% of blue at each bounce. The camera uses component-wise multiplication: `attenuation * ray_color(scattered, depth - 1, world)`.
+
+**Reflection math:** For incoming direction v and unit normal n, `reflect(v, n) = v - 2 * dot(v, n) * n`. The dot product measures the normal component. Subtracting twice that component reverses it while preserving the component parallel to the surface and the vector length. Example: (1, -1, 0) reflects to (1, 1, 0) at normal (0, 1, 0). This gives equal incident and reflection angles.
+
+**Fuzzy metal:** Normalize the incoming direction, reflect it, then add `fuzz * random_unit_vector()`. Normalizing before adding fuzz makes roughness independent of the original ray length. Fuzz 0 gives an exact mirror direction; larger fuzz blurs the reflected scene. Clamp fuzz to [0, 1] (we also clamp negatives, extending the book's upper clamp). Accept a scattered ray only if its dot product with the normal is positive; otherwise return false and the camera contributes black. This is the book's simple rough-reflection model, not a full physical microfacet metal model.
+
+**Scene:** Ground: Lambertian (0.8, 0.8, 0.0), center at (0, -100.5, -1), radius 100. Center: Lambertian (0.1, 0.2, 0.5), center (0, 0, -1.2), radius 0.5. Left: metal (0.8, 0.8, 0.8), fuzz 0.3, center (-1, 0, -1), radius 0.5. Right: metal (0.8, 0.6, 0.2), fuzz 1.0, center (1, 0, -1), radius 0.5. Silver shows recognizable reflected surroundings; gold is much blurrier. Both metal appearances are tinted by their RGB attenuation. Sky illumination, antialiasing, depth limits, intersection tolerance, and gamma encoding continue from earlier sections.
+
+**Verification:** Release build and all three CTest suites passed. Added checks for exact zero-fuzz reflection, length preservation, invariance to incoming ray length, scatter origins and albedo, lower/upper fuzz clamping, and both accepted and absorbed grazing bounces. Existing intersection tests now verify material propagation; diffuse recursion tests now use an assigned Lambertian material. Rejected null sphere materials are also tested. Validated all 90,000 output pixels and byte ranges, and visually inspected `renders/section10.png`. Settings: 400x225, 100 samples per pixel, maximum depth 50. PPM and PNG outputs in `renders/` remain ignored by Git.
+
 ## Version control workflow
 
 After finishing a checkpoint, update its checkbox and record what you verified in the log below. Review changes before staging them:
@@ -169,8 +187,10 @@ Generated images and build files are ignored. To preserve a milestone image, del
 
 | 09 | 2026-10-26 | Release build and both CTest suites passed. Lambertian scene at 400x225, 100 samples/pixel, depth 50; validated 90,000 pixels and visually inspected gamma-corrected PNG. |
 
+| 10 | 2026-10-26 | Release build and all three CTest suites passed. Four-sphere diffuse/fuzzy-metal scene at 400x225, 100 samples/pixel, depth 50; validated 90,000 pixels and visually inspected PNG. |
+
 For future entries, record image settings, what changed, and any remaining issues.
 
 ## Reference and attribution
 
-The linked book is the learning reference for this project. The interfaces and math in src/vec3.h and src/color.h follow Section 3, implemented with Codex assistance. The ray class and simple camera/background follow Section 4 with Codex assistance. The sphere intersection follows Section 5 with Codex assistance. The interval, hittable interface, hit records, oriented normals, sphere root selection, and object list follow Section 6 with Codex assistance. The camera class organization follows Section 7 with Codex assistance. Pixel jitter, sample accumulation, and averaging follow Section 8 with Codex assistance; the random helper uses the C++ standard library generator. Random direction rejection sampling, Lambertian scattering, recursive attenuation, depth limits, intersection tolerance, and gamma-2 conversion follow Section 9 with Codex assistance. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.
+The linked book is the learning reference for this project. The interfaces and math in src/vec3.h and src/color.h follow Section 3, implemented with Codex assistance. The ray class and simple camera/background follow Section 4 with Codex assistance. The sphere intersection follows Section 5 with Codex assistance. The interval, hittable interface, hit records, oriented normals, sphere root selection, and object list follow Section 6 with Codex assistance. The camera class organization follows Section 7 with Codex assistance. Pixel jitter, sample accumulation, and averaging follow Section 8 with Codex assistance; the random helper uses the C++ standard library generator. Random direction rejection sampling, Lambertian scattering, recursive attenuation, depth limits, intersection tolerance, and gamma-2 conversion follow Section 9 with Codex assistance. The material interface, per-object albedo, mirror reflection, and fuzzy metal model follow Section 10 with Codex assistance. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.

@@ -3,6 +3,7 @@
 
 #include "color.h"
 #include "hittable.h"
+#include "material.h"
 #include "random.h"
 
 #include <algorithm>
@@ -93,8 +94,11 @@ private:
         // Ignore tiny intersections caused by rounding at a bounce's origin.
         if (world.hit(r, interval(0.001, std::numeric_limits<double>::infinity()), record))
         {
-            const vec3 direction = lambertian_direction(record.normal);
-            return 0.5 * ray_color(ray(record.p, direction), depth - 1, world);
+            ray scattered;
+            color attenuation;
+            if (record.mat->scatter(r, record, attenuation, scattered))
+                return attenuation * ray_color(scattered, depth - 1, world);
+            return color(0, 0, 0);
         }
 
         const vec3 direction = unit_vector(r.direction());

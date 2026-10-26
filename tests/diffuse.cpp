@@ -13,6 +13,7 @@ public:
         valid_interval = valid_interval && range.min == 0.001;
         record.p = r.at(1);
         record.normal = vec3(0, 1, 0);
+        record.mat = std::make_shared<lambertian>(color(0.5, 0.5, 0.5));
         return true;
     }
 };

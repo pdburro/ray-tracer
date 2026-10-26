@@ -77,6 +77,12 @@ inline vec3 cross(const vec3 &a, const vec3 &b)
 
 inline vec3 unit_vector(const vec3 &v) { return v / v.length(); }
 
+// The normal must have unit length.
+inline vec3 reflect(const vec3 &v, const vec3 &normal)
+{
+    return v - 2 * dot(v, normal) * normal;
+}
+
 inline vec3 random_unit_vector()
 {
     while (true)
