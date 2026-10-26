@@ -4,7 +4,7 @@ A C++ class project following [Ray Tracing in One Weekend](https://raytracing.gi
 
 ## Current status
 
-Section 8 implemented: the camera averages 100 randomly jittered rays per pixel to smooth sphere and ground edges. The scene remains 400x225 with surface-normal colors and a sky background. `samples_per_pixel` is configurable in `src/main.cpp`; camera position/orientation and field of view remain fixed until Section 12. Next: Section 9, diffuse scattering and gamma correction.
+Section 9 implemented: sphere and ground now use Lambertian diffuse scattering with fixed 50% reflectance, recursive sky-light gathering, a maximum depth of 50, and gamma-2 output encoding. The scene renders at 400x225 and 100 samples per pixel. Camera position/orientation and field of view remain fixed until Section 12. Next: Section 10, material objects and metal.
 
 ## Project layout
 
@@ -17,9 +17,10 @@ src/hittable.h   Hit records and abstract intersection interface
 src/sphere.h     Sphere roots and oriented surface normals
 src/hittable_list.h  Nearest-hit scene traversal
 tests/intersections.cpp  Intersection regression checks
+tests/diffuse.cpp  Sampling, recursion, and gamma regression checks
 src/ray.h        Ray origin, direction, and at(t)
-src/vec3.h       Vector math and point3 alias
-src/color.h      Color alias and PPM pixel output
+src/vec3.h       Vector math, random unit vectors, Lambertian directions
+src/color.h      Color alias, gamma encoding, clamped PPM pixel output
 CMakeLists.txt   C++ build configuration
 renders/        Generated images (ignored by Git)
 ```
@@ -66,7 +67,7 @@ Check off each milestone after building, running, and inspecting its result. The
 - [x] 06 — Surface Normals and Multiple Objects: visualize normals and add a ground sphere.
 - [x] 07 — Moving Camera Code Into Its Own Class: preserve the rendered scene.
 - [x] 08 — Antialiasing: compare sampled edges with the earlier image.
-- [ ] 09 — Diffuse Materials: add diffuse scattering and gamma correction.
+- [x] 09 — Diffuse Materials: add diffuse scattering and gamma correction.
 - [ ] 10 — Metal: add reflective and fuzzy materials.
 - [ ] 11 — Dielectrics: add glass and refraction.
 - [ ] 12 — Positionable Camera: render the scene from a new viewpoint.
@@ -75,7 +76,7 @@ Check off each milestone after building, running, and inspecting its result. The
 
 ## First course checkpoint requirements
 
-This course checkpoint spans multiple textbook sections and additional features. Sections 6-8 complete the sphere intersection foundation, camera organization, and antialiasing.
+This course checkpoint spans multiple textbook sections and additional features. Sections 6-9 complete sphere intersections, camera organization, antialiasing, and initial diffuse shading. Per-object material classes, metal, and glass are still ahead.
 
 - [ ] Camera with configurable position, orientation, and field of view (Sections 7 and 12).
 - [x] Anti-aliasing (Section 8).
@@ -119,6 +120,21 @@ A pixel represents an area of the image. Sampling only its center makes object b
 - Outputs: `renders/section08.ppm`, `renders/section08.png`, and `renders/section08-comparison.png` (Section 7 left, Section 8 right; same crop enlarged 6x). Generated images remain ignored by Git.
 - Verification: Release build and CTest passed; checked all 90,000 pixels and RGB ranges. At 810 boundary pixels, RGB root-mean-square error against a separate uniform 16x16-sample reference fell from 25.204 for center sampling to 3.662 for 100 random samples. Visually inspected the enlarged comparison.
 
+### Section 9 learning notes
+
+**What changed:** Surface-normal debug colors have been replaced by light gathered along randomly scattered paths. The blue-to-white sky is the light source; there are no emissive objects yet. Both spheres currently share fixed gray diffuse behavior. Separate material objects arrive in Section 10.
+
+1. **Random directions (`vec3.h`):** Generate a point with each coordinate in [-1, 1), reject points outside the unit sphere or with squared length at most `1e-160`, and divide accepted points by their length. Rejection avoids the directional bias of directly normalizing random cube points; the lower limit avoids division by zero or underflow.
+2. **Lambertian scattering (`vec3.h`):** The book first explores uniform hemisphere scattering, then uses `normal + random_unit_vector()` to favor directions near the surface normal. We implement that final cosine-weighted distribution. If the sum is nearly zero, use the normal instead. Ray directions need not have unit length for the sphere intersection formula.
+3. **Recursive light gathering (`camera.h`):** On a hit, launch a ray from the hit point along the sampled direction. Return `0.5 * ray_color(scattered_ray, depth - 1, world)`. On a miss, return the sky color. Thus one surface retains half the incoming contribution, two retain one quarter, and so on. This traces from camera toward the environment to estimate light reaching the camera.
+4. **Bounce limit (`camera.h`, `main.cpp`):** Begin with `cam.max_depth = 50`; depth zero returns black. This bounds work and recursion. Truncating a path discards its remaining contribution. The class default is 10, negative values are rejected, and zero intentionally produces black.
+5. **Shadow acne (`camera.h`):** Use an intersection interval starting at `t = 0.001`. Floating-point error can otherwise make a scattered ray immediately hit the surface it just left. This is the book's simple scene-scale-dependent tolerance, not a universal world-space distance because directions are not normalized.
+6. **Gamma and output (`color.h`):** Continue averaging samples in linear space. Only when writing the final pixel, use `sqrt(component)` for positive values and zero for nonpositive ones. This approximates gamma-2 encoding, rather than the exact sRGB transfer function. For example, linear 0.25 encodes as 0.5 (byte 128). Clamp encoded values to [0, 0.999] before multiplying by 256, keeping RGB bytes in [0, 255]. Encoding each sample before averaging would give the wrong result.
+
+**Reading the result:** The surfaces look matte and slightly blue from the sky. The contact region is dark because paths there tend to encounter more surfaces and lose more light. Grain is finite-sample noise; increasing `samples_per_pixel` reduces it at increased rendering cost. Antialiasing and diffuse scattering now share the same random helper.
+
+**Verification:** Release build and both CTest suites passed. New tests check 20,000 unit-vector and Lambertian samples, outward nonzero directions, directional bias, mean cosine near 2/3 (the cosine-weighted distribution), recursion termination with an always-hit synthetic scene, the 0.001 hit tolerance, gamma conversion, and byte clamping. Validated all 90,000 rendered pixels and channel ranges, then visually inspected `renders/section09.png`. The render uses 400x225, 100 samples per pixel, and depth 50. Outputs are `renders/section09.ppm` and `renders/section09.png`, ignored by Git.
+
 ## Version control workflow
 
 After finishing a checkpoint, update its checkbox and record what you verified in the log below. Review changes before staging them:
@@ -151,8 +167,10 @@ Generated images and build files are ignored. To preserve a milestone image, del
 
 | 08 | 2026-10-26 | Release build and CTest passed; rendered 400x225 at 100 samples/pixel. Validated PPM and inspected enlarged edges; boundary RGB RMSE against a 16x16 reference improved from 25.204 to 3.662. |
 
+| 09 | 2026-10-26 | Release build and both CTest suites passed. Lambertian scene at 400x225, 100 samples/pixel, depth 50; validated 90,000 pixels and visually inspected gamma-corrected PNG. |
+
 For future entries, record image settings, what changed, and any remaining issues.
 
 ## Reference and attribution
 
-The linked book is the learning reference for this project. The interfaces and math in src/vec3.h and src/color.h follow Section 3, implemented with Codex assistance. The ray class and simple camera/background follow Section 4 with Codex assistance. The sphere intersection follows Section 5 with Codex assistance. The interval, hittable interface, hit records, oriented normals, sphere root selection, and object list follow Section 6 with Codex assistance. The camera class organization follows Section 7 with Codex assistance. Pixel jitter, sample accumulation, and averaging follow Section 8 with Codex assistance; the random helper uses the C++ standard library generator. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.
+The linked book is the learning reference for this project. The interfaces and math in src/vec3.h and src/color.h follow Section 3, implemented with Codex assistance. The ray class and simple camera/background follow Section 4 with Codex assistance. The sphere intersection follows Section 5 with Codex assistance. The interval, hittable interface, hit records, oriented normals, sphere root selection, and object list follow Section 6 with Codex assistance. The camera class organization follows Section 7 with Codex assistance. Pixel jitter, sample accumulation, and averaging follow Section 8 with Codex assistance; the random helper uses the C++ standard library generator. Random direction rejection sampling, Lambertian scattering, recursive attenuation, depth limits, intersection tolerance, and gamma-2 conversion follow Section 9 with Codex assistance. Credit any adapted code as it is added, and follow your class's rules for outside code and assistance.

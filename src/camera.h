@@ -17,6 +17,7 @@ public:
     double aspect_ratio = 1.0;
     int image_width = 100;
     int samples_per_pixel = 10;
+    int max_depth = 10;
 
     void render(const hittable &world)
     {
@@ -30,7 +31,7 @@ public:
             {
                 color pixel_color(0, 0, 0);
                 for (int sample = 0; sample < samples_per_pixel; ++sample)
-                    pixel_color += ray_color(get_ray(i, j), world);
+                    pixel_color += ray_color(get_ray(i, j), max_depth, world);
                 write_color(std::cout, pixel_samples_scale * pixel_color);
             }
         }
@@ -50,6 +51,8 @@ private:
     {
         if (samples_per_pixel < 1)
             throw std::invalid_argument("samples_per_pixel must be positive");
+        if (max_depth < 0)
+            throw std::invalid_argument("max_depth must not be negative");
         pixel_samples_scale = 1.0 / samples_per_pixel;
         image_height = std::max(1, int(image_width / aspect_ratio));
 
@@ -81,12 +84,17 @@ private:
         return ray(camera_center, pixel_sample - camera_center);
     }
 
-    color ray_color(const ray &r, const hittable &world) const
+    color ray_color(const ray &r, int depth, const hittable &world) const
     {
+        // A terminated path contributes no more light.
+        if (depth <= 0) return color(0, 0, 0);
+
         hit_record record;
-        if (world.hit(r, interval(0, std::numeric_limits<double>::infinity()), record))
+        // Ignore tiny intersections caused by rounding at a bounce's origin.
+        if (world.hit(r, interval(0.001, std::numeric_limits<double>::infinity()), record))
         {
-            return 0.5 * (record.normal + color(1, 1, 1));
+            const vec3 direction = lambertian_direction(record.normal);
+            return 0.5 * ray_color(ray(record.p, direction), depth - 1, world);
         }
 
         const vec3 direction = unit_vector(r.direction());
